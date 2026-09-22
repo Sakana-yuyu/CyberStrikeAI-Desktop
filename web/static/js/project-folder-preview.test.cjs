@@ -45,13 +45,14 @@ test('无项目预览隐藏测试范围和编辑入口', () => {
     assert.match(styles, /\.project-folder-preview\.is-unassigned \.project-folder-preview-details\s*\{\s*border-bottom: 0;/);
 });
 
-test('项目标题提供受权限保护的新建项目入口', () => {
+test('项目标题提供受权限保护的导入本地项目入口', () => {
     const source = functionSource(projects, 'showNewProjectModalFromChatSidebar', 'saveProjectModal');
 
     assert.match(html, /class="add-group-btn project-folders-add-btn"[\s\S]*?onclick="showNewProjectModalFromChatSidebar\(\)"/);
     assert.match(chat, /projectHeader\.querySelector\('\.project-folders-add-btn'\)/);
-    assert.match(source, /window\._projectModalFromChat = false/);
-    assert.match(source, /window\._projectModalFromChatSidebar = true/);
+    assert.match(source, /window\._projectImportFromChat = false/);
+    assert.match(source, /window\._projectImportFromChatSidebar = true/);
+    assert.match(source, /showImportFolderModal\(\)/);
     assert.match(rbac, /showNewProjectModalFromChatSidebar: 'project:write'/);
 });
 

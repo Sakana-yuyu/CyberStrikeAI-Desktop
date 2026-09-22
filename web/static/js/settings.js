@@ -146,7 +146,7 @@ function syncSettingsCustomSelect(select) {
         const check = document.createElement('span');
         check.className = 'settings-custom-select-check';
         check.setAttribute('aria-hidden', 'true');
-        check.textContent = '✓';
+        check.innerHTML = (typeof window.csIcon === 'function') ? window.csIcon('check', { size: 11, strokeWidth: 3 }) : '';
 
         const label = document.createElement('span');
         label.className = 'settings-custom-select-label';
@@ -647,6 +647,9 @@ function syncC2NavFromConfig(cfg) {
         }
     }
     window.__c2Enabled = on;
+    if (typeof window.syncAgentWorkspaceC2 === 'function') {
+        window.syncAgentWorkspaceC2(on);
+    }
     if (typeof syncDashboardAccessTabs === 'function') {
         syncDashboardAccessTabs();
     }
@@ -654,11 +657,9 @@ function syncC2NavFromConfig(cfg) {
 
 // 切换设置分类
 function switchSettingsSection(section) {
-    if (section === 'rbac') {
-        if (typeof switchPage === 'function') {
-            switchPage('platform-rbac');
-        }
-        return;
+    // Desktop is admin-only: retired multi-role admin and password settings.
+    if (section === 'rbac' || section === 'security') {
+        section = 'basic';
     }
 
     // 更新导航项状态
@@ -1202,7 +1203,7 @@ async function loadToolsList(page = 1, searchKeyword = '', options = {}) {
     if (toolsList) {
         toolsList.setAttribute('aria-busy', 'true');
         if (!toolsList.querySelector('.tool-item')) {
-            toolsList.innerHTML = '<div class="tools-list-items"><div class="loading" style="padding: 20px; text-align: center; color: var(--text-muted);">⏳ ' + (typeof window.t === 'function' ? window.t('mcp.loadingTools') : '正在加载工具列表...') + '</div></div>';
+            toolsList.innerHTML = '<div class="tools-list-items"><div class="loading" style="padding: 20px; text-align: center; color: var(--text-muted);">' + ((typeof window.csIcon === 'function') ? window.csIcon('hourglass', { size: 14 }) : '') + ' ' + (typeof window.t === 'function' ? window.t('mcp.loadingTools') : '正在加载工具列表...') + '</div></div>';
         }
     }
     
@@ -1503,7 +1504,7 @@ function toggleToolDetail(infoEl, toolKey, isExternal, externalMcp, event) {
                             schemaHTML += `<tr>
                                 <td><code>${escapeHtml(key)}</code></td>
                                 <td>${escapeHtml(String(type))}</td>
-                                <td>${isReq ? '<span style="color:#28a745">✔</span>' : ''}</td>
+                                <td>${isReq ? '<span style="color:#28a745; display:inline-flex">' + ((typeof window.csIcon === 'function') ? window.csIcon('check', { size: 12, strokeWidth: 3 }) : '') + '</span>' : ''}</td>
                                 <td>${escapeHtml(desc)}</td>
                             </tr>`;
                         });
@@ -1850,9 +1851,9 @@ async function updateToolsStats() {
     const tStats = typeof window.t === 'function' ? window.t : (k) => k;
     const pinnedCount = countUserAlwaysVisibleTools();
     statsEl.innerHTML = `
-        <span title="${tStats('mcp.currentPageEnabled')}">✅ ${tStats('mcp.currentPageEnabled')}: <strong>${currentPageEnabled}</strong> / ${currentPageTotal}</span>
-        <span title="${tStats('mcp.totalEnabled')}">📊 ${tStats('mcp.totalEnabled')}: <strong>${totalEnabled}</strong> / ${totalTools}</span>
-        <span title="${tStats('mcp.alwaysVisibleHint')}">📌 ${tStats('mcp.alwaysVisibleLabel')}: <strong>${pinnedCount}</strong></span>
+        <span title="${tStats('mcp.currentPageEnabled')}">${(typeof window.csIcon === 'function') ? window.csIcon('check-circle', {}) : ''} ${tStats('mcp.currentPageEnabled')}: <strong>${currentPageEnabled}</strong> / ${currentPageTotal}</span>
+        <span title="${tStats('mcp.totalEnabled')}">${(typeof window.csIcon === 'function') ? window.csIcon('chart-bar', {}) : ''} ${tStats('mcp.totalEnabled')}: <strong>${totalEnabled}</strong> / ${totalTools}</span>
+        <span title="${tStats('mcp.alwaysVisibleHint')}">${(typeof window.csIcon === 'function') ? window.csIcon('pin', {}) : ''} ${tStats('mcp.alwaysVisibleLabel')}: <strong>${pinnedCount}</strong></span>
     `;
 }
 
@@ -2390,7 +2391,7 @@ function syncModelPickDropdown(selectId) {
         const check = document.createElement('span');
         check.className = 'model-pick-option-check';
         check.setAttribute('aria-hidden', 'true');
-        check.textContent = '✓';
+        check.innerHTML = (typeof window.csIcon === 'function') ? window.csIcon('check', { size: 11, strokeWidth: 3 }) : '';
         const label = document.createElement('span');
         label.className = 'model-pick-option-label';
         label.textContent = opt.textContent;
@@ -2623,6 +2624,9 @@ function readAIChannelFromMainForm(id) {
 }
 
 function writeAIChannelToMainForm(id) {
+    invalidateAIChannelBalance();
+    const presetEl = document.getElementById('ai-vendor-preset');
+    if (presetEl) { presetEl.value = ''; syncSettingsCustomSelect(presetEl); }
     const ai = ensureAIConfigShape(currentConfig || {});
     const ch = ai.channels[id] || ai.channels[ai.default_channel] || {};
     selectedAIChannelId = id || ai.default_channel;
@@ -2729,12 +2733,82 @@ function syncSelectedAIChannelUI() {
     syncConnectionTestResultForSelectedAIChannel();
 }
 
+function applyAIChannelVendorPreset(vendor) {
+    const presets = {
+        openai: ['openai_compatible', 'https://api.openai.com/v1'],
+        claude: ['claude', 'https://api.anthropic.com'],
+        deepseek: ['openai_compatible', 'https://api.deepseek.com/v1'],
+        siliconflow: ['openai_compatible', 'https://api.siliconflow.cn/v1'],
+        moonshot: ['openai_compatible', 'https://api.moonshot.cn/v1'],
+        openrouter: ['openai_compatible', 'https://openrouter.ai/api/v1']
+    };
+    const preset = presets[vendor];
+    if (!preset) return;
+    document.getElementById('openai-provider').value = preset[0];
+    document.getElementById('openai-base-url').value = preset[1];
+    document.getElementById('openai-api-key').value = '';
+    document.getElementById('openai-model').value = '';
+    const profile = document.getElementById('openai-reasoning-profile');
+    if (profile) { profile.value = vendor === 'deepseek' ? 'deepseek' : 'auto'; syncSettingsCustomSelect(profile); }
+    syncSettingsCustomSelect(document.getElementById('openai-provider'));
+    syncAIChannelEditorPreview();
+    syncModelListFetchButtons();
+}
+
+let aiChannelBalanceRevision = 0;
+function invalidateAIChannelBalance() {
+    aiChannelBalanceRevision++;
+    const result = document.getElementById('ai-channel-balance-result');
+    if (result) result.textContent = '';
+}
+
+async function queryAIChannelBalance() {
+    if (typeof requirePermission === 'function' && !requirePermission('config:write')) return;
+    const btn = document.getElementById('ai-channel-balance-btn');
+    const result = document.getElementById('ai-channel-balance-result');
+    if (!btn || !result || btn.disabled) return;
+    const channel = readAIChannelFromMainForm(selectedAIChannelId);
+    if (!channel.api_key || !channel.base_url) {
+        result.textContent = '请填写 Base URL 和 API Key / Base URL and API Key required';
+        return;
+    }
+    const revision = ++aiChannelBalanceRevision;
+    btn.disabled = true;
+    result.textContent = '查询中 / Checking…';
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 35000);
+    try {
+        const response = await apiFetch('/api/config/channel-balance', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            signal: controller.signal,
+            body: JSON.stringify({ base_url: channel.base_url, api_key: channel.api_key })
+        });
+        const data = await response.json();
+        if (revision !== aiChannelBalanceRevision) return;
+        if (!response.ok) {
+            result.textContent = response.status === 403 ? '权限不足 / Permission denied' : '余额查询失败 / Balance query failed';
+        } else if (data.status === 'available') {
+            result.textContent = '账户余额 / Account: ' + data.amounts.map(a => `${a.remaining} ${a.currency}`).join(' · ')
+                + ' · ' + new Date().toLocaleTimeString();
+        } else {
+            result.textContent = data.message || '余额不可用 / Balance unavailable';
+        }
+    } catch (_) {
+        if (revision === aiChannelBalanceRevision) result.textContent = '查询失败或超时 / Request failed or timed out';
+    } finally {
+        clearTimeout(timer);
+        btn.disabled = false;
+    }
+}
+
 function syncAIChannelEditorPreview() {
     if (!currentConfig?.ai?.channels || !selectedAIChannelId || !currentConfig.ai.channels[selectedAIChannelId]) return;
     const id = normalizeAIChannelId(selectedAIChannelId);
     const prev = currentConfig.ai.channels[id] || {};
     const next = readAIChannelFromMainForm(id);
     const connectionChanged = ['provider', 'base_url', 'api_key', 'model'].some((key) => String(prev[key] || '') !== String(next[key] || ''));
+    if (connectionChanged) invalidateAIChannelBalance();
     if (connectionChanged) {
         delete aiChannelProbeResults[id];
     }
@@ -3163,6 +3237,7 @@ function selectedOrAllAIChannelIdsForProbe() {
 }
 
 async function probeSelectedAIChannels() {
+    if (typeof requirePermission === 'function' && !requirePermission('config:write')) return;
     if (typeof requirePermission === 'function' && !requirePermission('config:write')) return;
     const ids = selectedOrAllAIChannelIdsForProbe();
     if (!ids.length) {
@@ -3762,6 +3837,7 @@ function showConnectionTestFailure(resultEl, errorText) {
 
 // 测试OpenAI连接
 async function testOpenAIConnection() {
+    if (typeof requirePermission === 'function' && !requirePermission('config:write')) return;
     const btn = document.getElementById('test-openai-btn');
     const resultEl = document.getElementById('test-openai-result');
 
@@ -3966,86 +4042,11 @@ async function saveToolsConfig() {
 }
 
 function resetPasswordForm() {
-    const currentInput = document.getElementById('auth-current-password');
-    const newInput = document.getElementById('auth-new-password');
-    const confirmInput = document.getElementById('auth-confirm-password');
-
-    [currentInput, newInput, confirmInput].forEach(input => {
-        if (input) {
-            input.value = '';
-            input.classList.remove('error');
-        }
-    });
+    // Password UI removed for desktop admin-only mode.
 }
 
 async function changePassword() {
-    const currentInput = document.getElementById('auth-current-password');
-    const newInput = document.getElementById('auth-new-password');
-    const confirmInput = document.getElementById('auth-confirm-password');
-    const submitBtn = document.querySelector('.change-password-submit');
-
-    [currentInput, newInput, confirmInput].forEach(input => input && input.classList.remove('error'));
-
-    const currentPassword = currentInput?.value.trim() || '';
-    const newPassword = newInput?.value.trim() || '';
-    const confirmPassword = confirmInput?.value.trim() || '';
-
-    let hasError = false;
-
-    if (!currentPassword) {
-        currentInput?.classList.add('error');
-        hasError = true;
-    }
-
-    if (!newPassword || newPassword.length < 8) {
-        newInput?.classList.add('error');
-        hasError = true;
-    }
-
-    if (newPassword !== confirmPassword) {
-        confirmInput?.classList.add('error');
-        hasError = true;
-    }
-
-    if (hasError) {
-        alert(typeof window.t === 'function' ? window.t('settings.security.fillPasswordHint') : '请正确填写当前密码和新密码，新密码至少 8 位且需要两次输入一致。');
-        return;
-    }
-
-    if (submitBtn) {
-        submitBtn.disabled = true;
-    }
-
-    try {
-        const response = await apiFetch('/api/auth/change-password', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                oldPassword: currentPassword,
-                newPassword: newPassword
-            })
-        });
-
-        const result = await response.json().catch(() => ({}));
-        if (!response.ok) {
-            throw new Error(result.error || '修改密码失败');
-        }
-
-        const pwdMsg = typeof window.t === 'function' ? window.t('settings.security.passwordUpdated') : '密码已更新，请使用新密码重新登录。';
-        alert(pwdMsg);
-        resetPasswordForm();
-        handleUnauthorized({ message: pwdMsg, silent: false });
-        closeSettings();
-    } catch (error) {
-        console.error('修改密码失败:', error);
-        alert((typeof window.t === 'function' ? window.t('settings.security.changePasswordFailed') : '修改密码失败') + ': ' + error.message);
-    } finally {
-        if (submitBtn) {
-            submitBtn.disabled = false;
-        }
-    }
+    // Password UI removed for desktop admin-only mode.
 }
 
 // ==================== 外部MCP管理 ====================
@@ -4163,7 +4164,7 @@ function renderExternalMCPList(servers) {
     if (Object.keys(servers).length === 0) {
         if (layout) layout.classList.add('external-empty');
         const emptyT = typeof window.t === 'function' ? window.t : (k) => k;
-        list.innerHTML = '<div class="empty">📋 ' + emptyT('mcp.noExternalMCP') + '<br><span style="font-size: 0.875rem; margin-top: 8px; display: block;">' + emptyT('mcp.clickToAddExternal') + '</span></div>';
+        list.innerHTML = '<div class="empty">' + ((typeof window.csIcon === 'function') ? window.csIcon('clipboard') : '') + ' ' + emptyT('mcp.noExternalMCP') + '<br><span style="font-size: 0.875rem; margin-top: 8px; display: block;">' + emptyT('mcp.clickToAddExternal') + '</span></div>';
         return;
     }
     if (layout) layout.classList.remove('external-empty');
@@ -4181,7 +4182,13 @@ function renderExternalMCPList(servers) {
                           status === 'error' ? statusT('mcp.connectionFailed') :
                           status === 'disabled' ? statusT('mcp.disabled') : statusT('mcp.disconnected');
         const transport = server.config.type || server.config.transport || (server.config.command ? 'stdio' : 'http');
-        const transportIcon = transport === 'stdio' ? '⚙️' : '🌐';
+        const transportIcon = transport === 'stdio'
+            ? ((typeof window.csIcon === 'function') ? window.csIcon('settings') : '')
+            : ((typeof window.csIcon === 'function') ? window.csIcon('globe') : '');
+        const pauseIcon = (typeof window.csIcon === 'function') ? window.csIcon('pause') : '';
+        const playIcon = (typeof window.csIcon === 'function') ? window.csIcon('play') : '';
+        const errorIcon = (typeof window.csIcon === 'function') ? window.csIcon('x-circle') : '';
+        const warningIcon = (typeof window.csIcon === 'function') ? window.csIcon('warning') : '';
         
         const hasTools = server.tool_count !== undefined && server.tool_count > 0;
         const cardClickTitle = hasTools
@@ -4194,25 +4201,25 @@ function renderExternalMCPList(servers) {
             <div class="${cardClass}${selectedClass}" data-mcp-name="${settingsEscapeAttr(name)}"${hasTools ? ` onclick="scrollToExternalMCPTools(${settingsEscapeJsStringAttr(name)}, event)" title="${settingsEscapeAttr(cardClickTitle)}"` : ''}>
                 <div class="external-mcp-item-header">
                     <div class="external-mcp-item-info">
-                        <h4>${transportIcon} ${escapeHtml(name)}${server.tool_count !== undefined && server.tool_count > 0 ? `<span class="tool-count-badge" title="${escapeHtml(statusT('mcp.toolCount'))}">🔧 ${server.tool_count}</span>` : ''}</h4>
+                        <h4>${transportIcon} ${escapeHtml(name)}${server.tool_count !== undefined && server.tool_count > 0 ? `<span class="tool-count-badge" title="${escapeHtml(statusT('mcp.toolCount'))}">${(typeof window.csIcon === 'function') ? window.csIcon('wrench', {}) : ''} ${server.tool_count}</span>` : ''}</h4>
                         <span class="external-mcp-status ${statusClass}">${statusText}</span>
                     </div>
                     <div class="external-mcp-item-actions">
                         ${status === 'connected' || status === 'disconnected' || status === 'error' || status === 'disabled' ?
                             `<button class="btn-small" id="btn-toggle-${settingsEscapeAttr(name)}" onclick="toggleExternalMCP(${settingsEscapeJsStringAttr(name)}, ${settingsEscapeJsStringAttr(status)})" title="${settingsEscapeAttr(status === 'connected' ? statusT('mcp.stopConnection') : statusT('mcp.startConnection'))}">
-                                ${status === 'connected' ? '⏸ ' + statusT('mcp.stop') : '▶ ' + statusT('mcp.start')}
+                                ${status === 'connected' ? pauseIcon + ' ' + statusT('mcp.stop') : playIcon + ' ' + statusT('mcp.start')}
                             </button>` :
                             status === 'connecting' ?
                             `<button class="btn-small" id="btn-toggle-${settingsEscapeAttr(name)}" disabled style="opacity: 0.6; cursor: not-allowed;">
-                                ⏳ ${statusT('mcp.connecting')}
+                                ${(typeof window.csIcon === 'function') ? window.csIcon('hourglass', {}) : ''} ${statusT('mcp.connecting')}
                             </button>` : ''}
-                        <button class="btn-small" onclick="editExternalMCP(${settingsEscapeJsStringAttr(name)})" title="${settingsEscapeAttr(statusT('mcp.editConfig'))}" ${status === 'connecting' ? 'disabled' : ''}>✏️ ${statusT('common.edit')}</button>
-                        <button class="btn-small btn-danger" onclick="deleteExternalMCP(${settingsEscapeJsStringAttr(name)})" title="${settingsEscapeAttr(statusT('mcp.deleteConfig'))}" ${status === 'connecting' ? 'disabled' : ''}>🗑 ${statusT('common.delete')}</button>
+                        <button class="btn-small" onclick="editExternalMCP(${settingsEscapeJsStringAttr(name)})" title="${settingsEscapeAttr(statusT('mcp.editConfig'))}" ${status === 'connecting' ? 'disabled' : ''}>${(typeof window.csIcon === 'function') ? window.csIcon('pencil', {}) : ''} ${statusT('common.edit')}</button>
+                        <button class="btn-small btn-danger" onclick="deleteExternalMCP(${settingsEscapeJsStringAttr(name)})" title="${settingsEscapeAttr(statusT('mcp.deleteConfig'))}" ${status === 'connecting' ? 'disabled' : ''}>${(typeof window.csIcon === 'function') ? window.csIcon('trash', {}) : ''} ${statusT('common.delete')}</button>
                     </div>
                 </div>
                 ${(status === 'error' || status === 'disconnected') && server.error ? `
                 <div class="external-mcp-error" style="margin: 12px 0; padding: 12px; background: ${status === 'error' ? '#fee' : '#fff8e6'}; border-left: 3px solid ${status === 'error' ? '#f44' : '#e6a700'}; border-radius: 4px; color: ${status === 'error' ? '#c33' : '#8a6d00'}; font-size: 0.875rem;">
-                    <strong>${status === 'error' ? '❌' : '⚠️'} ${statusT('mcp.connectionErrorLabel')}</strong>${escapeHtml(server.error)}
+                    <strong>${status === 'error' ? errorIcon : warningIcon} ${statusT('mcp.connectionErrorLabel')}</strong>${escapeHtml(server.error)}
                 </div>` : ''}
                 <div class="external-mcp-item-details">
                     <div>
@@ -4269,10 +4276,10 @@ function renderExternalMCPStats(stats) {
     
     const statsT = typeof window.t === 'function' ? window.t : (k) => k;
     statsEl.innerHTML = `
-        <span title="${statsT('mcp.totalCount')}">📊 ${statsT('mcp.totalCount')}: <strong>${total}</strong></span>
-        <span title="${statsT('mcp.enabledCount')}">✅ ${statsT('mcp.enabledCount')}: <strong>${enabled}</strong></span>
-        <span title="${statsT('mcp.disabledCount')}">⏸ ${statsT('mcp.disabledCount')}: <strong>${disabled}</strong></span>
-        <span title="${statsT('mcp.connectedCount')}">🔗 ${statsT('mcp.connectedCount')}: <strong>${connected}</strong></span>
+        <span title="${statsT('mcp.totalCount')}">${(typeof window.csIcon === 'function') ? window.csIcon('chart-bar', {}) : ''} ${statsT('mcp.totalCount')}: <strong>${total}</strong></span>
+        <span title="${statsT('mcp.enabledCount')}">${(typeof window.csIcon === 'function') ? window.csIcon('check-circle', {}) : ''} ${statsT('mcp.enabledCount')}: <strong>${enabled}</strong></span>
+        <span title="${statsT('mcp.disabledCount')}">${(typeof window.csIcon === 'function') ? window.csIcon('pause', {}) : ''} ${statsT('mcp.disabledCount')}: <strong>${disabled}</strong></span>
+        <span title="${statsT('mcp.connectedCount')}">${(typeof window.csIcon === 'function') ? window.csIcon('link', {}) : ''} ${statsT('mcp.connectedCount')}: <strong>${connected}</strong></span>
     `;
 }
 
@@ -4581,7 +4588,7 @@ async function toggleExternalMCP(name, currentStatus) {
         button.disabled = true;
         button.style.opacity = '0.6';
         button.style.cursor = 'not-allowed';
-        button.innerHTML = '⏳ 连接中...';
+        button.innerHTML = ((typeof window.csIcon === 'function') ? window.csIcon('hourglass', { size: 12 }) : '') + ' ' + ((typeof window.t === 'function') ? window.t('mcp.connecting') : '连接中...');
     }
     
     try {

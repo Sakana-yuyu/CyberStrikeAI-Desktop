@@ -199,20 +199,20 @@ function wsUpdateRoleSelectorDisplay() {
     if (!iconEl || !textEl) return;
     var cur = (typeof getCurrentRole === 'function') ? getCurrentRole() : (localStorage.getItem('currentRole') || '');
     if (!cur) {
-        iconEl.textContent = '\ud83d\udd35';
+        iconEl.innerHTML = (typeof window.csIcon === 'function') ? window.csIcon('user') : '';
         textEl.textContent = (typeof window.t === 'function' ? window.t('chat.defaultRole') : '') || '默认';
         return;
     }
     if (wsRolesCache) {
         for (var i = 0; i < wsRolesCache.length; i++) {
             if (wsRolesCache[i].name === cur) {
-                iconEl.textContent = wsRolesCache[i].icon || '\ud83d\udd35';
+                iconEl.innerHTML = (typeof window.csRoleIcon === 'function') ? window.csRoleIcon(wsRolesCache[i].icon) : '';
                 textEl.textContent = cur;
                 return;
             }
         }
     }
-    iconEl.textContent = '\ud83d\udd35';
+    iconEl.innerHTML = (typeof window.csIcon === 'function') ? window.csIcon('user') : '';
     textEl.textContent = cur;
 }
 
@@ -225,13 +225,13 @@ function wsRenderRoleList() {
     var defSelected = !cur ? ' selected' : '';
     var defDesc = wsTOr('roles.defaultRoleDescription', '默认角色，不额外携带用户提示词，使用所有工具');
     html += '<button type="button" class="role-selection-item-main' + defSelected + '" data-selection-detail="' + escapeHtmlAttr(defDesc) + '" onclick="wsSelectRole(\'\')">' +
-        '<div class="role-selection-item-icon-main">\ud83d\udd35</div>' +
+        '<div class="role-selection-item-icon-main">' + ((typeof window.csIcon === 'function') ? window.csIcon('user') : '') + '</div>' +
         '<div class="role-selection-item-content-main"><div class="role-selection-item-name-main">' +
         (wsTOr('chat.defaultRole', '默认')) +
         '</div><div class="role-selection-item-description-main">' +
         escapeHtml(defDesc) +
         '</div></div>' +
-        (defSelected ? '<div class="role-selection-checkmark-main">\u2713</div>' : '') +
+        (defSelected ? '<div class="role-selection-checkmark-main">' + ((typeof window.csIcon === 'function') ? window.csIcon('check', { size: 11 }) : '') + '</div>' : '') +
         '</button>';
     if (wsRolesCache) {
         for (var i = 0; i < wsRolesCache.length; i++) {
@@ -241,10 +241,10 @@ function wsRenderRoleList() {
             var sel = (r.name === cur) ? ' selected' : '';
             var desc = r.description || '';
             html += '<button type="button" class="role-selection-item-main' + sel + '" data-selection-detail="' + escapeHtmlAttr(desc) + '" onclick="wsSelectRole(\'' + r.name.replace(/'/g, "\\'") + '\')">' +
-                '<div class="role-selection-item-icon-main">' + escapeHtml(r.icon || '\ud83d\udd35') + '</div>' +
+                '<div class="role-selection-item-icon-main">' + ((typeof window.csRoleIcon === 'function') ? window.csRoleIcon(r.icon) : '') + '</div>' +
                 '<div class="role-selection-item-content-main"><div class="role-selection-item-name-main">' + escapeHtml(r.name) + '</div>' +
                 '<div class="role-selection-item-description-main">' + escapeHtml(desc.substring(0, 60)) + '</div></div>' +
-                (sel ? '<div class="role-selection-checkmark-main">\u2713</div>' : '') +
+                (sel ? '<div class="role-selection-checkmark-main">' + ((typeof window.csIcon === 'function') ? window.csIcon('check', { size: 11 }) : '') + '</div>' : '') +
                 '</button>';
         }
     }
@@ -323,7 +323,7 @@ function wsSyncAgentMode(value) {
     var icon = document.getElementById('ws-agent-mode-icon');
     if (hid) hid.value = value;
     if (label) label.textContent = (typeof getAgentModeLabelForValue === 'function') ? getAgentModeLabelForValue(value) : value;
-    if (icon) icon.textContent = (typeof getAgentModeIconForValue === 'function') ? getAgentModeIconForValue(value) : '\ud83e\udd16';
+    if (icon) icon.innerHTML = (typeof window.csIcon === 'function') ? window.csIcon('robot') : '';
     var wrapper = document.getElementById('ws-agent-mode-wrapper');
     if (wrapper) {
         wrapper.querySelectorAll('.ws-agent-mode-option').forEach(function (el) {
@@ -532,10 +532,12 @@ async function applyWebshellAiProjectSelection(projectId) {
 function showNewProjectModalFromWebshellAi() {
     wsCloseProjectPanel();
     if (webshellCurrentConn && webshellCurrentConn.id) {
-        window._projectModalFromWebshellConnId = webshellCurrentConn.id;
+        window._projectImportFromWebshellConnId = webshellCurrentConn.id;
     }
-    window._projectModalFromChat = false;
-    if (typeof showNewProjectModal === 'function') showNewProjectModal();
+    window._projectImportFromChat = false;
+    window._projectImportFromChatSidebar = false;
+    if (typeof showImportFolderModal === 'function') showImportFolderModal();
+    else if (typeof showNewProjectModal === 'function') showNewProjectModal();
 }
 
 window.applyWebshellAiProjectSelection = applyWebshellAiProjectSelection;
@@ -690,7 +692,7 @@ function syncWebshellFormSelect(select) {
 
         var check = document.createElement('span');
         check.className = 'webshell-form-select-check';
-        check.textContent = '✓';
+        check.innerHTML = (typeof window.csIcon === 'function') ? window.csIcon('check', { size: 11, strokeWidth: 3 }) : '';
         check.setAttribute('aria-hidden', 'true');
 
         var label = document.createElement('span');
@@ -2217,11 +2219,11 @@ function buildWebshellTimelineItemFromDetail(detail) {
     if (eventType === 'iteration') {
         title = ap + ((typeof window.t === 'function') ? window.t('chat.iterationRound', { n: data.iteration || 1 }) : ('第 ' + (data.iteration || 1) + ' 轮迭代'));
     } else if (eventType === 'thinking') {
-        title = ap + '🤔 ' + ((typeof window.t === 'function') ? window.t('chat.aiThinking') : 'AI 思考');
+        title = ap + '' + ((typeof window.t === 'function') ? window.t('chat.aiThinking') : 'AI 思考');
     } else if (eventType === 'reasoning_chain') {
-        title = ap + '🔗 ' + ((typeof window.t === 'function') ? window.t('chat.reasoningChain') : '推理过程');
+        title = ap + '' + ((typeof window.t === 'function') ? window.t('chat.reasoningChain') : '推理过程');
     } else if (eventType === 'tool_calls_detected') {
-        title = ap + '🔧 ' + ((typeof window.t === 'function') ? window.t('chat.toolCallsDetected', { count: data.count || 0 }) : ('检测到 ' + (data.count || 0) + ' 个工具调用'));
+        title = ap + '' + ((typeof window.t === 'function') ? window.t('chat.toolCallsDetected', { count: data.count || 0 }) : ('检测到 ' + (data.count || 0) + ' 个工具调用'));
     } else if (eventType === 'tool_call') {
         var tn = data.toolName || ((typeof window.t === 'function') ? window.t('chat.unknownTool') : '未知工具');
         var idx = data.index || 0;
@@ -2229,7 +2231,7 @@ function buildWebshellTimelineItemFromDetail(detail) {
         var wsCallTitle = typeof window.formatToolCallTimelineTitle === 'function'
             ? window.formatToolCallTimelineTitle(tn, idx, total)
             : ((typeof window.t === 'function') ? window.t('chat.callTool', { name: tn, index: idx, total: total }) : ('调用: ' + tn + (total ? ' (' + idx + '/' + total + ')' : '')));
-        title = ap + '🔧 ' + wsCallTitle;
+        title = ap + '' + wsCallTitle;
     } else if (eventType === 'tool_result') {
         var tname = data.toolName || '工具';
         var wsNoResultText = (typeof window.t === 'function') ? window.t('timeline.noResult') : '无结果';
@@ -2240,7 +2242,7 @@ function buildWebshellTimelineItemFromDetail(detail) {
             : { kind: ((data.isError || data.success === false) ? 'error' : 'success'), isError: (data.isError || data.success === false) };
         var wsBackgroundRunning = wsDisplayState.kind === 'background_running';
         var success = !wsDisplayState.isError && !wsBackgroundRunning;
-        var wsIcon = wsDisplayState.kind === 'blocked' ? '🛡 ' : (wsBackgroundRunning ? '⏳ ' : (success ? '✅ ' : '❌ '));
+        var wsIcon = wsDisplayState.kind === 'blocked' ? '' : (wsBackgroundRunning ? '' : (success ? '' : ''));
         var wsLabel = wsDisplayState.kind === 'blocked'
             ? ((typeof window.t === 'function') ? window.t('chat.toolExecBlocked', { name: tname }) : tname + ' 已拦截')
             : wsBackgroundRunning
@@ -2248,9 +2250,9 @@ function buildWebshellTimelineItemFromDetail(detail) {
             : ((typeof window.t === 'function') ? (success ? window.t('chat.toolExecComplete', { name: tname }) : window.t('chat.toolExecFailed', { name: tname })) : (tname + (success ? ' 执行完成' : ' 执行失败')));
         title = ap + wsIcon + wsLabel;
     } else if (eventType === 'eino_agent_reply') {
-        title = ap + '💬 ' + ((typeof window.t === 'function') ? window.t('chat.einoAgentReplyTitle') : '子代理回复');
+        title = ap + '' + ((typeof window.t === 'function') ? window.t('chat.einoAgentReplyTitle') : '子代理回复');
     } else if (eventType === 'eino_usage_summary') {
-        title = ap + '📊 ' + formatWebshellEinoUsageSummaryTitle(data);
+        title = ap + '' + formatWebshellEinoUsageSummaryTitle(data);
     } else if (eventType === 'progress') {
         title = (typeof window.translateProgressMessage === 'function') ? window.translateProgressMessage(detail.message || '') : (detail.message || '');
     }
@@ -2529,7 +2531,7 @@ function selectWebshell(id, stateReady) {
         '<div class="webshell-ai-selectors-row">' +
         '<div class="ws-project-selector-wrapper project-selector-wrapper">' +
         '<button type="button" id="ws-project-btn" class="role-selector-btn" onclick="wsToggleProjectPanel()" aria-label="' + escapeHtml(wsProjectT('projects.chatSelectorButton', '选择项目')) + '" aria-haspopup="listbox" aria-expanded="false" title="' + escapeHtml(wsProjectT('projects.chatSelectorButton', '绑定项目后共享事实黑板（跨对话）')) + '">' +
-        '<span class="role-selector-icon" aria-hidden="true">📁</span>' +
+        '<span class="role-selector-icon" aria-hidden="true">' + ((typeof window.csIcon === 'function') ? window.csIcon('folder', {}) : '') + '</span>' +
         '<span id="ws-project-text" class="role-selector-text">' + escapeHtml(wsProjectT('projects.noProject', '无项目')) + '</span>' +
         '<svg class="role-selector-arrow" width="10" height="10" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
         '</button>' +
@@ -2554,7 +2556,7 @@ function selectWebshell(id, stateReady) {
         '</div></div></div></div>' +
         '<div class="ws-role-selector-wrapper">' +
         '<button type="button" class="role-selector-btn ws-role-selector-btn" id="ws-role-selector-btn" onclick="wsToggleRolePanel()">' +
-        '<span id="ws-role-selector-icon" class="role-selector-icon">\ud83d\udd35</span>' +
+        '<span id="ws-role-selector-icon" class="role-selector-icon">' + ((typeof window.csIcon === 'function') ? window.csIcon('user') : '') + '</span>' +
         '<span id="ws-role-selector-text" class="role-selector-text">' + (wsT('chat.defaultRole') || '默认') + '</span>' +
         '<svg class="role-selector-arrow" width="10" height="10" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
         '</button>' +
@@ -2566,7 +2568,7 @@ function selectWebshell(id, stateReady) {
         '<div class="ws-agent-mode-wrapper" id="ws-agent-mode-wrapper" style="display:none;">' +
         '<div class="agent-mode-inner">' +
         '<button type="button" class="role-selector-btn agent-mode-btn" id="ws-agent-mode-btn" onclick="wsToggleAgentModePanel()">' +
-        '<span id="ws-agent-mode-icon" class="role-selector-icon">\ud83e\udd16</span>' +
+        '<span id="ws-agent-mode-icon" class="role-selector-icon">' + ((typeof window.csIcon === 'function') ? window.csIcon('robot') : '') + '</span>' +
         '<span id="ws-agent-mode-text" class="role-selector-text">' + (wsT('chat.agentModeEinoSingle') || 'Eino 单代理') + '</span>' +
         '<svg class="role-selector-arrow" width="10" height="10" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
         '</button>' +
@@ -2575,10 +2577,10 @@ function selectWebshell(id, stateReady) {
         '<button type="button" class="role-selection-panel-close" onclick="wsCloseAgentModePanel()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>' +
         '</div>' +
         '<div class="agent-mode-options">' +
-        '<button type="button" class="role-selection-item-main agent-mode-option ws-agent-mode-option" data-value="eino_single" role="option" onclick="wsSelectAgentMode(\'eino_single\')" data-agent-mode-detail="' + escapeHtmlAttr(wsT('chat.agentModeEinoSingleHint') || 'Eino ChatModelAgent + Runner') + '"><div class="role-selection-item-icon-main">\u26a1</div><div class="role-selection-item-content-main"><div class="role-selection-item-name-main">' + (wsT('chat.agentModeEinoSingle') || 'Eino 单代理（ADK）') + '</div><div class="role-selection-item-description-main">' + (wsT('chat.agentModeEinoSingleHint') || 'Eino ChatModelAgent + Runner') + '</div></div><div class="role-selection-checkmark-main agent-mode-check" data-agent-mode-check="eino_single">\u2713</div></button>' +
-        '<button type="button" class="role-selection-item-main agent-mode-option ws-agent-mode-option" data-value="deep" role="option" onclick="wsSelectAgentMode(\'deep\')" data-agent-mode-detail="' + escapeHtmlAttr(wsT('chat.agentModeDeepHint') || 'Eino DeepAgent，适合复杂安全测试、多阶段 task 子代理委派与汇总') + '"><div class="role-selection-item-icon-main">\ud83e\udde9</div><div class="role-selection-item-content-main"><div class="role-selection-item-name-main">' + (wsT('chat.agentModeDeep') || 'Deep（DeepAgent）') + '</div><div class="role-selection-item-description-main">' + (wsT('chat.agentModeDeepHint') || 'Eino DeepAgent，适合复杂安全测试、多阶段 task 子代理委派与汇总') + '</div></div><div class="role-selection-checkmark-main agent-mode-check" data-agent-mode-check="deep">\u2713</div></button>' +
-        '<button type="button" class="role-selection-item-main agent-mode-option ws-agent-mode-option" data-value="plan_execute" role="option" onclick="wsSelectAgentMode(\'plan_execute\')" data-agent-mode-detail="' + escapeHtmlAttr(wsT('chat.agentModePlanExecuteHint') || '规划 → 执行 → 重规划') + '"><div class="role-selection-item-icon-main">\ud83d\udccb</div><div class="role-selection-item-content-main"><div class="role-selection-item-name-main">' + (wsT('chat.agentModePlanExecuteLabel') || 'Plan-Execute') + '</div><div class="role-selection-item-description-main">' + (wsT('chat.agentModePlanExecuteHint') || '规划 → 执行 → 重规划') + '</div></div><div class="role-selection-checkmark-main agent-mode-check" data-agent-mode-check="plan_execute">\u2713</div></button>' +
-        '<button type="button" class="role-selection-item-main agent-mode-option ws-agent-mode-option" data-value="supervisor" role="option" onclick="wsSelectAgentMode(\'supervisor\')" data-agent-mode-detail="' + escapeHtmlAttr(wsT('chat.agentModeSupervisorHint') || '专家路由场景：监督者通过 transfer 动态分派多个专业子代理') + '"><div class="role-selection-item-icon-main">\ud83c\udfaf</div><div class="role-selection-item-content-main"><div class="role-selection-item-name-main">' + (wsT('chat.agentModeSupervisorLabel') || 'Supervisor（专家路由）') + '</div><div class="role-selection-item-description-main">' + (wsT('chat.agentModeSupervisorHint') || '专家路由场景：监督者通过 transfer 动态分派多个专业子代理') + '</div></div><div class="role-selection-checkmark-main agent-mode-check" data-agent-mode-check="supervisor">\u2713</div></button>' +
+        '<button type="button" class="role-selection-item-main agent-mode-option ws-agent-mode-option" data-value="eino_single" role="option" onclick="wsSelectAgentMode(\'eino_single\')" data-agent-mode-detail="' + escapeHtmlAttr(wsT('chat.agentModeEinoSingleHint') || 'Eino ChatModelAgent + Runner') + '"><div class="role-selection-item-icon-main">' + ((typeof window.csIcon === 'function') ? window.csIcon('zap', { size: 18 }) : '') + '</div><div class="role-selection-item-content-main"><div class="role-selection-item-name-main">' + (wsT('chat.agentModeEinoSingle') || 'Eino 单代理（ADK）') + '</div><div class="role-selection-item-description-main">' + (wsT('chat.agentModeEinoSingleHint') || 'Eino ChatModelAgent + Runner') + '</div></div><div class="role-selection-checkmark-main agent-mode-check" data-agent-mode-check="eino_single">' + ((typeof window.csIcon === 'function') ? window.csIcon('check', { size: 11 }) : '') + '</div></button>' +
+        '<button type="button" class="role-selection-item-main agent-mode-option ws-agent-mode-option" data-value="deep" role="option" onclick="wsSelectAgentMode(\'deep\')" data-agent-mode-detail="' + escapeHtmlAttr(wsT('chat.agentModeDeepHint') || 'Eino DeepAgent，适合复杂安全测试、多阶段 task 子代理委派与汇总') + '"><div class="role-selection-item-icon-main">' + ((typeof window.csIcon === 'function') ? window.csIcon('brain', { size: 18 }) : '') + '</div><div class="role-selection-item-content-main"><div class="role-selection-item-name-main">' + (wsT('chat.agentModeDeep') || 'Deep（DeepAgent）') + '</div><div class="role-selection-item-description-main">' + (wsT('chat.agentModeDeepHint') || 'Eino DeepAgent，适合复杂安全测试、多阶段 task 子代理委派与汇总') + '</div></div><div class="role-selection-checkmark-main agent-mode-check" data-agent-mode-check="deep">' + ((typeof window.csIcon === 'function') ? window.csIcon('check', { size: 11 }) : '') + '</div></button>' +
+        '<button type="button" class="role-selection-item-main agent-mode-option ws-agent-mode-option" data-value="plan_execute" role="option" onclick="wsSelectAgentMode(\'plan_execute\')" data-agent-mode-detail="' + escapeHtmlAttr(wsT('chat.agentModePlanExecuteHint') || '规划 → 执行 → 重规划') + '"><div class="role-selection-item-icon-main">' + ((typeof window.csIcon === 'function') ? window.csIcon('clipboard', { size: 18 }) : '') + '</div><div class="role-selection-item-content-main"><div class="role-selection-item-name-main">' + (wsT('chat.agentModePlanExecuteLabel') || 'Plan-Execute') + '</div><div class="role-selection-item-description-main">' + (wsT('chat.agentModePlanExecuteHint') || '规划 → 执行 → 重规划') + '</div></div><div class="role-selection-checkmark-main agent-mode-check" data-agent-mode-check="plan_execute">' + ((typeof window.csIcon === 'function') ? window.csIcon('check', { size: 11 }) : '') + '</div></button>' +
+        '<button type="button" class="role-selection-item-main agent-mode-option ws-agent-mode-option" data-value="supervisor" role="option" onclick="wsSelectAgentMode(\'supervisor\')" data-agent-mode-detail="' + escapeHtmlAttr(wsT('chat.agentModeSupervisorHint') || '专家路由场景：监督者通过 transfer 动态分派多个专业子代理') + '"><div class="role-selection-item-icon-main">' + ((typeof window.csIcon === 'function') ? window.csIcon('target', { size: 18 }) : '') + '</div><div class="role-selection-item-content-main"><div class="role-selection-item-name-main">' + (wsT('chat.agentModeSupervisorLabel') || 'Supervisor（专家路由）') + '</div><div class="role-selection-item-description-main">' + (wsT('chat.agentModeSupervisorHint') || '专家路由场景：监督者通过 transfer 动态分派多个专业子代理') + '</div></div><div class="role-selection-checkmark-main agent-mode-check" data-agent-mode-check="supervisor">' + ((typeof window.csIcon === 'function') ? window.csIcon('check', { size: 11 }) : '') + '</div></button>' +
         '</div></div></div>' +
         '<input type="hidden" id="ws-agent-mode-select" value="eino_single" autocomplete="off" />' +
         '</div>' +
@@ -2890,7 +2892,7 @@ function selectWebshell(id, stateReady) {
             var active = p.id === state.activeProfileId;
             html += '<div class="webshell-db-profile-tab' + (active ? ' active' : '') + '" data-id="' + escapeHtml(p.id) + '">' +
                 '<button type="button" class="webshell-db-profile-main" data-action="switch" data-id="' + escapeHtml(p.id) + '">' + escapeHtml(p.name || 'DB') + '</button>' +
-                '<button type="button" class="webshell-db-profile-menu" data-action="edit" data-id="' + escapeHtml(p.id) + '" title="' + escapeHtml(wsT('webshell.editConnection') || '编辑') + '">⚙</button>' +
+                '<button type="button" class="webshell-db-profile-menu" data-action="edit" data-id="' + escapeHtml(p.id) + '" title="' + escapeHtml(wsT('webshell.editConnection') || '编辑') + '">' + ((typeof window.csIcon === 'function') ? window.csIcon('settings', { size: 12 }) : '') + '</button>' +
                 '<button type="button" class="webshell-db-profile-menu" data-action="delete" data-id="' + escapeHtml(p.id) + '" title="' + escapeHtml(wsT('webshell.dbDeleteProfile') || '删除连接') + '">×</button>' +
                 '</div>';
         });
@@ -2960,7 +2962,7 @@ function selectWebshell(id, stateReady) {
             var tableNames = Object.keys(tables).sort(function (a, b) { return a.localeCompare(b); });
             var isActive = selectedDb && selectedDb === dbName;
             html += '<details class="webshell-db-group"' + (isActive ? ' open' : '') + '>';
-            html += '<summary class="webshell-db-group-title" data-db="' + escapeHtml(dbName) + '" title="' + escapeHtml(dbName) + '"><span class="webshell-db-icon">🗄</span><span class="webshell-db-label">' + escapeHtml(dbName) + '</span><span class="webshell-db-count">' + tableNames.length + '</span></summary>';
+            html += '<summary class="webshell-db-group-title" data-db="' + escapeHtml(dbName) + '" title="' + escapeHtml(dbName) + '"><span class="webshell-db-icon"></span><span class="webshell-db-label">' + escapeHtml(dbName) + '</span><span class="webshell-db-count">' + tableNames.length + '</span></summary>';
             html += '<div class="webshell-db-group-items">';
             tableNames.forEach(function (tableName) {
                 var columns = Array.isArray(tables[tableName]) ? tables[tableName] : [];
@@ -2968,11 +2970,11 @@ function selectWebshell(id, stateReady) {
                 var tableKey = dbName + '::' + tableName;
                 var tableOpen = !!openTableKeys[tableKey];
                 html += '<details class="webshell-db-table-node" data-db="' + escapeHtml(dbName) + '" data-table="' + escapeHtml(tableName) + '" data-columns-loaded="' + (columns.length ? '1' : '0') + '"' + (tableOpen ? ' open' : '') + '>';
-                html += '<summary class="webshell-db-table-item" data-db="' + escapeHtml(dbName) + '" data-table="' + escapeHtml(tableName) + '" title="' + escapeHtml(tableName) + '"><span class="webshell-db-icon">📄</span><span class="webshell-db-label">' + escapeHtml(tableName) + '</span><span class="webshell-db-count">' + escapeHtml(columnCountText) + '</span></summary>';
+                html += '<summary class="webshell-db-table-item" data-db="' + escapeHtml(dbName) + '" data-table="' + escapeHtml(tableName) + '" title="' + escapeHtml(tableName) + '"><span class="webshell-db-icon"></span><span class="webshell-db-label">' + escapeHtml(tableName) + '</span><span class="webshell-db-count">' + escapeHtml(columnCountText) + '</span></summary>';
                 if (columns.length) {
                     html += '<div class="webshell-db-column-list">';
                     columns.forEach(function (columnName) {
-                        html += '<button type="button" class="webshell-db-column-item" data-db="' + escapeHtml(dbName) + '" data-table="' + escapeHtml(tableName) + '" data-column="' + escapeHtml(columnName) + '" title="' + escapeHtml(columnName) + '"><span class="webshell-db-icon">🧱</span><span class="webshell-db-label">' + escapeHtml(columnName) + '</span></button>';
+                        html += '<button type="button" class="webshell-db-column-item" data-db="' + escapeHtml(dbName) + '" data-table="' + escapeHtml(tableName) + '" data-column="' + escapeHtml(columnName) + '" title="' + escapeHtml(columnName) + '"><span class="webshell-db-icon"></span><span class="webshell-db-label">' + escapeHtml(columnName) + '</span></button>';
                     });
                     html += '</div>';
                 } else {
@@ -3624,24 +3626,24 @@ function runWebshellAiSend(conn, inputEl, sendBtn, messagesContainer) {
                         var retryMsg = _em || '模型调用遇到临时问题，Eino 正在原生重试…';
                         if (_ed && _ed.reason) retryMsg += '\n原因：' + _ed.reason;
                         if (_ed && _ed.error) retryMsg += '\n错误详情：' + _ed.error;
-                        appendTimelineItem('warning', '🔁 模型调用重试' + retryAttempt, retryMsg, _ed);
+                        appendTimelineItem('warning', '模型调用重试' + retryAttempt, retryMsg, _ed);
                     } else if (_et === 'eino_model_failover') {
                         var failoverAttempt = _ed && _ed.attempt ? ('（' + _ed.attempt + '）') : '';
                         var failoverMsg = _em || '主模型重试耗尽，正在切换备用模型。';
                         if (_ed && _ed.channel) failoverMsg += '\n通道：' + _ed.channel;
                         if (_ed && _ed.model) failoverMsg += '\n模型：' + _ed.model;
-                        appendTimelineItem('warning', '🔀 切换备用模型' + failoverAttempt, failoverMsg, _ed);
+                        appendTimelineItem('warning', '切换备用模型' + failoverAttempt, failoverMsg, _ed);
                     } else if (_et === 'eino_usage_summary') {
-                        appendTimelineItem('eino_usage_summary', '📊 ' + formatWebshellEinoUsageSummaryTitle(_ed), formatWebshellEinoUsageSummaryMessage(_ed), _ed);
+                        appendTimelineItem('eino_usage_summary', '' + formatWebshellEinoUsageSummaryTitle(_ed), formatWebshellEinoUsageSummaryMessage(_ed), _ed);
                     } else if (_et === 'error' && _em) {
                         streamingTypingId += 1;
                         var errLabel = wsTOr('chat.error', '错误');
-                        appendTimelineItem('error', '❌ ' + errLabel, _em, _ed);
+                        appendTimelineItem('error', '' + errLabel, _em, _ed);
                         renderWebshellAiErrorMessage(assistantDiv, errLabel + ': ' + _em);
                     } else if (_et === 'cancelled') {
                         streamingTypingId += 1;
                         var cancelLabel = wsTOr('chat.taskCancelled', '任务已取消');
-                        appendTimelineItem('cancelled', '⛔ ' + cancelLabel, _em, _ed);
+                        appendTimelineItem('cancelled', '' + cancelLabel, _em, _ed);
                         if (!streamingTarget && !assistantDiv.dataset.hasContent) {
                             assistantDiv.textContent = cancelLabel;
                         }
@@ -3655,7 +3657,7 @@ function runWebshellAiSend(conn, inputEl, sendBtn, messagesContainer) {
                     } else if (_et === 'progress' && _em) {
                         var progressMsg = (typeof window.translateProgressMessage === 'function')
                             ? window.translateProgressMessage(_em) : _em;
-                        appendTimelineItem('progress', '🔍 ' + progressMsg, '', _ed);
+                        appendTimelineItem('progress', '' + progressMsg, '', _ed);
                         if (!streamingTarget) assistantDiv.textContent = '…';
                     } else if (_et === 'iteration') {
                         var iterN = _ed.iteration || 0;
@@ -3667,7 +3669,7 @@ function runWebshellAiSend(conn, inputEl, sendBtn, messagesContainer) {
                         if (iterMessage && typeof window.translateProgressMessage === 'function') {
                             iterMessage = window.translateProgressMessage(iterMessage);
                         }
-                        appendTimelineItem('iteration', '🔍 ' + iterTitle, iterMessage, _ed);
+                        appendTimelineItem('iteration', '' + iterTitle, iterMessage, _ed);
                         if (!streamingTarget) assistantDiv.textContent = '…';
 
                     // ─── Thinking / reasoning_chain（推理过程，reasoning_content） ───
@@ -3679,7 +3681,7 @@ function runWebshellAiSend(conn, inputEl, sendBtn, messagesContainer) {
                             if (tsExist.body) tsExist.body.textContent = '';
                         } else {
                         var thinkSLabel = wsTOr(isRcStart ? 'chat.reasoningChain' : 'chat.aiThinking', isRcStart ? '推理过程' : 'AI 思考');
-                        var thinkEmoji = isRcStart ? '🔗' : '🤔';
+                        var thinkEmoji = isRcStart ? '' : '';
                         var thinkSItem = document.createElement('div');
                         thinkSItem.className = 'webshell-ai-timeline-item webshell-ai-timeline-' + (isRcStart ? 'reasoning_chain' : 'thinking');
                         thinkSItem.innerHTML = '<span class="webshell-ai-timeline-title">' + escapeHtml(webshellAgentPx(_ed) + thinkEmoji + ' ' + thinkSLabel) + '</span>';
@@ -3727,14 +3729,14 @@ function runWebshellAiSend(conn, inputEl, sendBtn, messagesContainer) {
                         } else {
                             var isRc = _et === 'reasoning_chain';
                             var thinkLabel = wsTOr(isRc ? 'chat.reasoningChain' : 'chat.aiThinking', isRc ? '推理过程' : 'AI 思考');
-                            var thinkEm = isRc ? '🔗' : '🤔';
+                            var thinkEm = isRc ? '' : '';
                             appendTimelineItem(isRc ? 'reasoning_chain' : 'thinking', webshellAgentPx(_ed) + thinkEm + ' ' + thinkLabel, _em, _ed);
                         }
                         if (!streamingTarget) assistantDiv.textContent = '…';
 
                     // ─── Warning ───
                     } else if (_et === 'warning') {
-                        appendTimelineItem('warning', '⚠️ ' + (_em || ''), '', _ed);
+                        appendTimelineItem('warning', '' + (_em || ''), '', _ed);
 
                     // ─── Tool calls ───
                     } else if (_et === 'tool_calls_detected' && _ed) {
@@ -3743,7 +3745,7 @@ function runWebshellAiSend(conn, inputEl, sendBtn, messagesContainer) {
                         if (typeof window.t === 'function') {
                             try { detectedLabel = window.t('chat.toolCallsDetected', { count: count }); } catch (e) { /* */ }
                         }
-                        appendTimelineItem('tool_calls_detected', webshellAgentPx(_ed) + '🔧 ' + detectedLabel, _em || '', _ed);
+                        appendTimelineItem('tool_calls_detected', webshellAgentPx(_ed) + '' + detectedLabel, _em || '', _ed);
                         if (!streamingTarget) assistantDiv.textContent = '…';
                     } else if (_et === 'tool_call' && _ed) {
                         var tn = _ed.toolName || '未知工具';
@@ -3752,7 +3754,7 @@ function runWebshellAiSend(conn, inputEl, sendBtn, messagesContainer) {
                         var callTitle = typeof window.formatToolCallTimelineTitle === 'function'
                             ? window.formatToolCallTimelineTitle(tn, idx, total)
                             : (wsTOr('chat.callTool', '') || ('调用工具: ' + tn + (total ? ' (' + idx + '/' + total + ')' : '')));
-                        var callItem = appendTimelineItem('tool_call', webshellAgentPx(_ed) + '🔧 ' + callTitle, _em || '', _ed);
+                        var callItem = appendTimelineItem('tool_call', webshellAgentPx(_ed) + '' + callTitle, _em || '', _ed);
                         if (_ed.toolCallId && callItem) {
                             wsToolCallItems.set(_ed.toolCallId, callItem);
                         }
@@ -3781,7 +3783,7 @@ function runWebshellAiSend(conn, inputEl, sendBtn, messagesContainer) {
                             if (typeof window.t === 'function') {
                                 try { titleText = window.t(blocked ? 'chat.toolExecBlocked' : (success ? 'chat.toolExecComplete' : 'chat.toolExecFailed'), { name: tname }); } catch (e) { /* */ }
                             }
-                            var title = webshellAgentPx(_ed) + (blocked ? '🛡 ' : (success ? '✅ ' : '❌ ')) + titleText;
+                            var title = webshellAgentPx(_ed) + (blocked ? '' : (success ? '' : '')) + titleText;
                             var sub = _em || (_ed.result ? String(_ed.result).slice(0, 300) : '');
                             appendTimelineItem('tool_result', title, sub, _ed);
                         }
@@ -3799,7 +3801,7 @@ function runWebshellAiSend(conn, inputEl, sendBtn, messagesContainer) {
                         var runTS = wsTOr('timeline.running', '执行中...');
                         var itemS = document.createElement('div');
                         itemS.className = 'webshell-ai-timeline-item webshell-ai-timeline-eino_agent_reply';
-                        itemS.innerHTML = '<span class="webshell-ai-timeline-title">' + escapeHtml(webshellAgentPx(_ed) + '💬 ' + repTS + ' · ' + runTS) + '</span>';
+                        itemS.innerHTML = '<span class="webshell-ai-timeline-title">' + escapeHtml(webshellAgentPx(_ed) + '' + repTS + ' · ' + runTS) + '</span>';
                         timelineContainer.appendChild(itemS);
                         timelineContainer.classList.add('has-items');
                         einoSubReplyStreams.set(_ed.streamId, { el: itemS, buf: '' });
@@ -3836,7 +3838,7 @@ function runWebshellAiSend(conn, inputEl, sendBtn, messagesContainer) {
                             var fullE = (_em != null && _em !== '') ? String(_em) : stE.buf;
                             var repTE = wsTOr('chat.einoAgentReplyTitle', '子代理回复');
                             var titE = stE.el.querySelector('.webshell-ai-timeline-title');
-                            if (titE) titE.textContent = webshellAgentPx(_ed) + '💬 ' + repTE;
+                            if (titE) titE.textContent = webshellAgentPx(_ed) + '' + repTE;
                             var preE = stE.el.querySelector('.webshell-eino-reply-stream-body');
                             if (!preE) {
                                 preE = document.createElement('pre');
@@ -3854,7 +3856,7 @@ function runWebshellAiSend(conn, inputEl, sendBtn, messagesContainer) {
                         if (!streamingTarget) assistantDiv.textContent = '…';
                     } else if (_et === 'eino_agent_reply' && _em) {
                         var replyT = wsTOr('chat.einoAgentReplyTitle', '子代理回复');
-                        appendTimelineItem('eino_agent_reply', webshellAgentPx(_ed) + '💬 ' + replyT, _em, _ed);
+                        appendTimelineItem('eino_agent_reply', webshellAgentPx(_ed) + '' + replyT, _em, _ed);
                         if (!streamingTarget) assistantDiv.textContent = '…';
                     }
                 } catch (e) { /* ignore parse error */ }
@@ -4612,7 +4614,11 @@ function renderDirectoryTree(currentPath, items, conn) {
         var isActive = path === curr;
         var isSelectedFile = !isDir && path === selectedPath;
         var name = node.name;
-        var icon = isDir ? (path === '.' ? '🗂' : '📁') : '📄';
+        var icon = isDir
+            ? (path === '.'
+                ? ((typeof window.csIcon === 'function') ? window.csIcon('layers') : '')
+                : ((typeof window.csIcon === 'function') ? window.csIcon('folder') : ''))
+            : ((typeof window.csIcon === 'function') ? window.csIcon('file') : '');
         var nodeHtml =
             '<div class="webshell-tree-node" data-depth="' + depth + '">' +
             '<div class="webshell-tree-row' + (isActive ? ' active' : '') + (isSelectedFile ? ' selected-file' : '') + '">' +

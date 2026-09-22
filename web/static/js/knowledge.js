@@ -7,7 +7,7 @@ function _t(key, opts) {
 function getKnowledgeNotEnabledHTML() {
     return `
         <div class="empty-state" style="text-align: center; padding: 40px 20px;">
-            <div style="font-size: 48px; margin-bottom: 20px;">📚</div>
+            <div style="margin-bottom: 20px; color: var(--text-muted);">${(typeof window.csIcon === 'function') ? window.csIcon('book', {size:48,strokeWidth:1.2}) : ''}</div>
             <h3 data-i18n="knowledge.notEnabledTitle" style="margin-bottom: 10px; color: #666;"></h3>
             <p data-i18n="knowledge.notEnabledHint" style="color: #999; margin-bottom: 20px;"></p>
             <button data-i18n="knowledge.goToSettings" onclick="switchToSettings()" style="
@@ -365,7 +365,7 @@ function renderKnowledgeItemCard(item) {
                         </button>
                     </div>
                 </div>
-                ${relativePath ? `<div class="knowledge-item-path">📁 ${escapeHtml(relativePath)}</div>` : ''}
+                ${relativePath ? `<div class="knowledge-item-path">${(typeof window.csIcon === 'function') ? window.csIcon('folder', {}) : ''} ${escapeHtml(relativePath)}</div>` : ''}
             </div>
             ${previewText ? `
             <div class="knowledge-item-card-content">
@@ -374,7 +374,7 @@ function renderKnowledgeItemCard(item) {
             ` : ''}
             <div class="knowledge-item-card-footer">
                 <div class="knowledge-item-meta">
-                    ${displayTime ? `<span class="knowledge-item-time" title="${timeLabel}">🕒 ${displayTime}</span>` : ''}
+                    ${displayTime ? `<span class="knowledge-item-time" title="${timeLabel}">${(typeof window.csIcon === 'function') ? window.csIcon('clock', {}) : ''} ${displayTime}</span>` : ''}
                     ${isRecent ? '<span class="knowledge-item-badge-new">新</span>' : ''}
                 </div>
             </div>
@@ -488,7 +488,7 @@ async function updateIndexProgress() {
                     margin-bottom: 16px;
                 ">
                     <div style="display: flex; align-items: center; margin-bottom: 8px;">
-                        <span style="font-size: 20px; margin-right: 8px;">❌</span>
+                        <span style="margin-right: 8px; color: var(--error-color); display:inline-flex">${(typeof window.csIcon === 'function') ? window.csIcon('x-circle', {size:20}) : ''}</span>
                         <span style="font-weight: bold; color: #c00;">索引构建失败</span>
                     </div>
                     <div style="color: #666; font-size: 14px; margin-bottom: 12px; line-height: 1.5;">
@@ -557,7 +557,7 @@ async function updateIndexProgress() {
             progressContainer.innerHTML = `
                 <div class="knowledge-index-progress">
                     <div class="progress-header">
-                        <span class="progress-icon">🔨</span>
+                        <span class="progress-icon">${(typeof window.csIcon === 'function') ? window.csIcon('wrench', {}) : ''}</span>
                         <span class="progress-text">正在构建索引：${rebuildCurrent}/${rebuildTotal} (${rebuildProgress.toFixed(1)}%) - 失败：${rebuildFailed}</span>
                     </div>
                     <div class="progress-bar-container">
@@ -580,7 +580,7 @@ async function updateIndexProgress() {
         if (isComplete) {
             progressContainer.innerHTML = `
                 <div class="knowledge-index-progress-complete">
-                    <span class="progress-icon">✅</span>
+                    <span class="progress-icon">${(typeof window.csIcon === 'function') ? window.csIcon('check-circle', {}) : ''}</span>
                     <span class="progress-text">索引构建完成 (${indexedItems}/${totalItems})</span>
                 </div>
             `;
@@ -594,7 +594,7 @@ async function updateIndexProgress() {
             progressContainer.innerHTML = `
                 <div class="knowledge-index-progress">
                     <div class="progress-header">
-                        <span class="progress-icon">🔨</span>
+                        <span class="progress-icon">${(typeof window.csIcon === 'function') ? window.csIcon('wrench', {}) : ''}</span>
                         <span class="progress-text">正在构建索引: ${indexedItems}/${totalItems} (${progressPercent.toFixed(1)}%)</span>
                     </div>
                     <div class="progress-bar-container">
@@ -627,7 +627,7 @@ async function updateIndexProgress() {
                     margin-bottom: 16px;
                 ">
                     <div style="display: flex; align-items: center; margin-bottom: 8px;">
-                        <span style="font-size: 20px; margin-right: 8px;">⚠️</span>
+                        <span style="margin-right: 8px; color: var(--warning-color); display:inline-flex">${(typeof window.csIcon === 'function') ? window.csIcon('warning', {size:20}) : ''}</span>
                         <span style="font-weight: bold; color: #c00;">无法获取索引状态</span>
                     </div>
                     <div style="color: #666; font-size: 14px;">
@@ -782,7 +782,7 @@ async function searchKnowledgeItems() {
         if (categoriesWithItems.length === 0) {
             container.innerHTML = `
                 <div class="empty-state" style="text-align: center; padding: 40px 20px;">
-                    <div style="font-size: 48px; margin-bottom: 20px;">🔍</div>
+                    <div style="margin-bottom: 20px; color: var(--text-muted);">${(typeof window.csIcon === 'function') ? window.csIcon('search', {size:48,strokeWidth:1.2}) : ''}</div>
                     <h3 style="margin-bottom: 10px;">未找到匹配的知识项</h3>
                     <p style="color: #999;">关键词 "<strong>${escapeHtml(searchTerm)}</strong>" 在所有数据中没有匹配结果</p>
                     <p style="color: #999; margin-top: 10px; font-size: 0.9em;">请尝试其他关键词，或使用分类筛选功能</p>
@@ -881,7 +881,7 @@ async function startKnowledgeIndexJob(mode = 'missing') {
         progressContainer.innerHTML = `
             <div class="knowledge-index-progress">
                 <div class="progress-header">
-                    <span class="progress-icon">🔨</span>
+                    <span class="progress-icon">${(typeof window.csIcon === 'function') ? window.csIcon('wrench', {}) : ''}</span>
                     <span class="progress-text">正在${actionLabel}: 准备中...</span>
                 </div>
                 <div class="progress-bar-container">
@@ -1099,7 +1099,7 @@ async function saveKnowledgeItem() {
                         }
                     });
                 }
-                showNotification(`✅ ${action}成功！已切换到分类"${newItemCategory}"查看新添加的知识项。`, 'success');
+                showNotification(`${action}成功！已切换到分类"${newItemCategory}"查看新添加的知识项。`, 'success');
             }
             
             // 刷新知识项列表（重置到第一页）
@@ -1111,16 +1111,16 @@ async function saveKnowledgeItem() {
             if (itemsListContainer && originalContent) {
                 itemsListContainer.innerHTML = originalContent;
             }
-            showNotification('⚠️ 知识项已保存，但刷新列表失败，请手动刷新页面查看', 'warning');
+            showNotification('知识项已保存，但刷新列表失败，请手动刷新页面查看', 'warning');
         }
         
     } catch (error) {
         console.error('保存知识项失败:', error);
-        showNotification('❌ 保存知识项失败: ' + error.message, 'error');
+        showNotification('保存知识项失败: ' + error.message, 'error');
         
         // 如果通知系统不可用，使用alert
         if (typeof window.showNotification !== 'function') {
-            alert('❌ 保存知识项失败: ' + error.message);
+            alert('保存知识项失败: ' + error.message);
         }
         
         // 恢复输入字段和按钮状态（错误时不关闭模态框，让用户修改后重试）
@@ -1218,7 +1218,7 @@ async function deleteKnowledgeItem(id) {
         }
         
         // 显示成功通知
-        showNotification('✅ 删除成功！知识项已从系统中移除。', 'success');
+        showNotification('删除成功！知识项已从系统中移除。', 'success');
         
         // 重新加载数据以确保数据同步（保持当前页码）
         await loadKnowledgeCategories();
@@ -1252,7 +1252,7 @@ async function deleteKnowledgeItem(id) {
             }
         }
         
-        showNotification('❌ 删除知识项失败: ' + error.message, 'error');
+        showNotification('删除知识项失败: ' + error.message, 'error');
     }
 }
 
@@ -1408,12 +1408,15 @@ function renderRetrievalLogs(logs) {
         }
         
         const timeAgo = getTimeAgo(log.createdAt);
-        
+        const logIcon = (typeof window.csIcon === 'function')
+            ? window.csIcon(hasResults ? 'search' : 'warning')
+            : '';
+
         return `
             <div class="retrieval-log-card ${hasResults ? 'has-results' : 'no-results'}" data-index="${index}">
                 <div class="retrieval-log-card-header">
                     <div class="retrieval-log-icon">
-                        ${hasResults ? '🔍' : '⚠️'}
+                        ${logIcon}
                     </div>
                     <div class="retrieval-log-main-info">
                         <div class="retrieval-log-query">
@@ -1421,9 +1424,9 @@ function renderRetrievalLogs(logs) {
                         </div>
                         <div class="retrieval-log-meta">
                             <span class="retrieval-log-time" title="${formatTime(log.createdAt)}">
-                                🕒 ${timeAgo}
+                                ${(typeof window.csIcon === 'function') ? window.csIcon('clock', {}) : ''} ${timeAgo}
                             </span>
-                            ${log.riskType ? `<span class="retrieval-log-risk-type">📁 ${escapeHtml(log.riskType)}</span>` : ''}
+                            ${log.riskType ? `<span class="retrieval-log-risk-type">${(typeof window.csIcon === 'function') ? window.csIcon('folder', {}) : ''} ${escapeHtml(log.riskType)}</span>` : ''}
                         </div>
                     </div>
                     <div class="retrieval-log-result-badge ${hasResults ? 'success' : 'empty'}">
@@ -1678,7 +1681,7 @@ async function deleteRetrievalLog(id, index) {
         }
         
         // 显示成功通知
-        showNotification('✅ 删除成功！检索记录已从系统中移除。', 'success');
+        showNotification('删除成功！检索记录已从系统中移除。', 'success');
         
         // 从内存中移除该项
         if (retrievalLogsData && index >= 0 && index < retrievalLogsData.length) {
@@ -1861,7 +1864,7 @@ function showRetrievalLogDetailsModal(log, retrievedItems) {
                         <h4 style="margin: 0; color: var(--text-primary);">${idx + 1}. ${escapeHtml(item.title || _t('retrievalLogs.untitled'))}</h4>
                         <span style="font-size: 0.875rem; color: var(--text-secondary);">${escapeHtml(item.category || _t('retrievalLogs.uncategorized'))}</span>
                     </div>
-                    ${item.filePath ? `<div style="font-size: 0.875rem; color: var(--text-muted); margin-bottom: 8px;">📁 ${escapeHtml(item.filePath)}</div>` : ''}
+                    ${item.filePath ? `<div style="font-size: 0.875rem; color: var(--text-muted); margin-bottom: 8px;">${(typeof window.csIcon === 'function') ? window.csIcon('folder', {}) : ''} ${escapeHtml(item.filePath)}</div>` : ''}
                     <div style="font-size: 0.875rem; color: var(--text-secondary); line-height: 1.6;">
                         ${escapeHtml(previewText || _t('retrievalLogs.noContentPreview'))}
                     </div>

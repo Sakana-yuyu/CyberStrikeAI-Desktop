@@ -570,7 +570,7 @@ function syncInfoCollectProviderSelect() {
         const check = document.createElement('span');
         check.className = 'settings-custom-select-check';
         check.setAttribute('aria-hidden', 'true');
-        check.textContent = '✓';
+        check.innerHTML = (typeof window.csIcon === 'function') ? window.csIcon('check', { size: 11, strokeWidth: 3 }) : '';
         const label = document.createElement('span');
         label.className = 'settings-custom-select-label';
         label.textContent = option.textContent;

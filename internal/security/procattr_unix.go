@@ -19,6 +19,9 @@ func prepareShellCmdSession(cmd *exec.Cmd) error {
 	return nil
 }
 
+// HideConsoleWindow Unix 下无控制台窗口概念，空实现。
+func HideConsoleWindow(cmd *exec.Cmd) {}
+
 // terminateProcessGroup 对 rootPID 对应进程组发 SIGKILL；rootPID 为 0 时回退到 cmd.Process.Pid。
 func terminateProcessGroup(rootPID int, cmd *exec.Cmd) {
 	pid := rootPID

@@ -35,8 +35,10 @@ type AuthManager struct {
 	sessionDuration time.Duration
 	db              *database.DB
 
-	mu       sync.RWMutex
-	sessions map[string]Session
+	mu          sync.RWMutex
+	sessions    map[string]Session
+	disabled    bool
+	anonSession *Session
 }
 
 // NewAuthManager creates a new AuthManager instance.
@@ -85,27 +87,106 @@ func (a *AuthManager) AttachRBACStore(db *database.DB) (generatedAdminPassword s
 	return generatedAdminPassword, nil
 }
 
+// SetDisabled 关闭登录鉴权：此后所有请求均以内置管理员匿名会话放行。
+// 仅限本地可信部署使用（如 desktop --no-window 仅监听回环地址）。
+func (a *AuthManager) SetDisabled(disabled bool) {
+	a.mu.Lock()
+	a.disabled = disabled
+	a.anonSession = nil
+	a.mu.Unlock()
+}
+
+// Disabled 报告登录鉴权是否已关闭。
+func (a *AuthManager) Disabled() bool {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	return a.disabled
+}
+
+// anonymousSession 返回共享的内置管理员会话；长期有效（鉴权关闭时过期无意义），
+// 首次调用时惰性签发并缓存，避免每请求新建会话导致 sessions map 无限增长。
+func (a *AuthManager) anonymousSession() (Session, bool) {
+	a.mu.RLock()
+	if a.anonSession != nil {
+		session := *a.anonSession
+		a.mu.RUnlock()
+		return session, true
+	}
+	a.mu.RUnlock()
+
+	user, err := a.lookupUser("admin")
+	if err != nil {
+		return Session{}, false
+	}
+	session, err := a.buildSession(user)
+	if err != nil {
+		return Session{}, false
+	}
+	// 前端按 expires_at 判断本地会话是否有效；鉴权关闭时给一个长期过期时间，
+	// 防止前端误认为会话过期而弹出登录层。
+	session.ExpiresAt = time.Now().AddDate(10, 0, 0)
+
+	a.mu.Lock()
+	if a.anonSession == nil {
+		a.sessions[session.Token] = session
+		a.anonSession = &session
+	}
+	cached := *a.anonSession
+	a.mu.Unlock()
+	return cached, true
+}
+
 // Authenticate validates the password and creates a new session.
 func (a *AuthManager) Authenticate(username, password string) (string, time.Time, error) {
 	session, err := a.authenticateSession(username, password)
 	if err != nil {
 		return "", time.Time{}, err
 	}
-	a.mu.Lock()
-	a.sessions[session.Token] = session
-	a.mu.Unlock()
+	a.storeSession(session)
 	return session.Token, session.ExpiresAt, nil
 }
 
-func (a *AuthManager) authenticateSession(username, password string) (Session, error) {
-	token := uuid.NewString()
-	expiresAt := time.Now().Add(a.sessionDuration)
+// IssueLocalDesktopSession mints a session for username WITHOUT password
+// verification. It exists solely for the desktop client's one-shot bootstrap
+// endpoint (loopback + per-process token guarded) so the packaged app opens
+// straight into the UI. Never expose it through a password-accepting route.
+func (a *AuthManager) IssueLocalDesktopSession(username string) (string, time.Time, error) {
+	user, err := a.lookupUser(username)
+	if err != nil {
+		return "", time.Time{}, err
+	}
+	session, err := a.buildSession(user)
+	if err != nil {
+		return "", time.Time{}, err
+	}
+	a.storeSession(session)
+	return session.Token, session.ExpiresAt, nil
+}
 
+func (a *AuthManager) storeSession(session Session) {
+	a.mu.Lock()
+	a.sessions[session.Token] = session
+	a.mu.Unlock()
+}
+
+func (a *AuthManager) authenticateSession(username, password string) (Session, error) {
+	user, err := a.lookupUser(username)
+	if err != nil {
+		return Session{}, err
+	}
+	if !VerifyPasswordHash(password, user.PasswordHash) {
+		return Session{}, ErrInvalidPassword
+	}
+	return a.buildSession(user)
+}
+
+// lookupUser trims/normalizes username (empty → admin) and requires an enabled account.
+func (a *AuthManager) lookupUser(username string) (*database.RBACUser, error) {
 	a.mu.RLock()
 	db := a.db
 	a.mu.RUnlock()
 	if db == nil {
-		return Session{}, errors.New("authentication store is not configured")
+		return nil, errors.New("authentication store is not configured")
 	}
 
 	username = strings.TrimSpace(strings.ToLower(username))
@@ -115,13 +196,26 @@ func (a *AuthManager) authenticateSession(username, password string) (Session, e
 	user, err := db.GetRBACUserByUsername(username)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return Session{}, ErrInvalidPassword
+			return nil, ErrInvalidPassword
 		}
-		return Session{}, err
+		return nil, err
 	}
-	if !user.Enabled || !VerifyPasswordHash(password, user.PasswordHash) {
-		return Session{}, ErrInvalidPassword
+	if !user.Enabled {
+		return nil, ErrInvalidPassword
 	}
+	return user, nil
+}
+
+// buildSession resolves RBAC access and mints a fresh session token.
+func (a *AuthManager) buildSession(user *database.RBACUser) (Session, error) {
+	a.mu.RLock()
+	db := a.db
+	sessionDuration := a.sessionDuration
+	a.mu.RUnlock()
+	if db == nil {
+		return Session{}, errors.New("authentication store is not configured")
+	}
+
 	access, err := db.ResolveRBACAccess(user.ID)
 	if err != nil {
 		return Session{}, err
@@ -131,8 +225,8 @@ func (a *AuthManager) authenticateSession(username, password string) (Session, e
 		roleIDs = append(roleIDs, role.ID)
 	}
 	return Session{
-		Token:            token,
-		ExpiresAt:        expiresAt,
+		Token:            uuid.NewString(),
+		ExpiresAt:        time.Now().Add(sessionDuration),
 		UserID:           user.ID,
 		Username:         user.Username,
 		DisplayName:      user.DisplayName,
@@ -151,7 +245,11 @@ func (s Session) ScopeFor(permission string) string {
 }
 
 // ValidateToken checks whether the provided token is still valid.
+// 鉴权关闭（auth.enabled: false）时无视令牌内容，直接返回内置管理员匿名会话。
 func (a *AuthManager) ValidateToken(token string) (Session, bool) {
+	if a.Disabled() {
+		return a.anonymousSession()
+	}
 	if strings.TrimSpace(token) == "" {
 		return Session{}, false
 	}

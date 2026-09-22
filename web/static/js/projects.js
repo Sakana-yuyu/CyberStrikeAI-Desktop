@@ -119,7 +119,7 @@ function syncProjectsFilterSelect(select) {
         const check = document.createElement('span');
         check.className = 'projects-filter-select-check';
         check.setAttribute('aria-hidden', 'true');
-        check.textContent = '✓';
+        check.innerHTML = (typeof window.csIcon === 'function') ? window.csIcon('check', { size: 11, strokeWidth: 3 }) : '';
         const label = document.createElement('span');
         label.className = 'projects-filter-select-label';
         label.textContent = opt.textContent;
@@ -615,7 +615,8 @@ function initProjectsModalEscape() {
     window._projectsModalEscapeBound = true;
     document.addEventListener('keydown', (e) => {
         if (e.key !== 'Escape') return;
-        if (isProjectsOverlayVisible('project-modal')) closeProjectModal();
+        if (isProjectsOverlayVisible('project-import-modal')) closeProjectImportModal();
+        else if (isProjectsOverlayVisible('project-modal')) closeProjectModal();
         else if (isProjectsOverlayVisible('fact-modal')) closeFactModal();
         else if (isProjectsOverlayVisible('fact-detail-modal')) closeFactDetailModal();
     });
@@ -877,7 +878,7 @@ function renderProjectsSidebar() {
     const list = projectsCache;
     if (!projectsCache.length) {
         const createBtn = (typeof hasPermission === 'function' && hasPermission('project:write'))
-            ? `<button type="button" class="btn-primary btn-small projects-empty-btn" onclick="showNewProjectModal()">${escapeHtml(tp('projects.newProject'))}</button>`
+            ? `<button type="button" class="btn-primary btn-small projects-empty-btn" onclick="showNewProjectModal()">${escapeHtml(tpFmt('projects.importLocalProject', '导入本地项目'))}</button>`
             : '';
         el.innerHTML = `<div class="projects-empty">${escapeHtml(tp('projects.noProjects'))}${createBtn ? `<br>${createBtn}` : ''}</div>`;
         updateProjectsDetailVisibility();
@@ -1953,17 +1954,43 @@ function closeProjectsOverlay(id) {
     closeAppModal(id);
 }
 
+/** 主路径：导入本地项目（关联或复制文件夹）。 */
 function showNewProjectModal() {
     if (!requireProjectWrite()) return;
-    document.getElementById('project-modal-title').textContent = tp('projects.modalNewTitle');
+    window._projectImportFromChat = false;
+    window._projectImportFromChatSidebar = false;
+    showImportFolderModal();
+}
+
+/** 次要路径：仅创建空项目（名称+描述），不导入文件夹。 */
+function showEmptyProjectModal() {
+    if (!requireProjectWrite()) return;
+    document.getElementById('project-modal-title').textContent = tpFmt('projects.modalEmptyTitle', tp('projects.modalNewTitle') || '创建空项目');
     const sub = document.getElementById('project-modal-subtitle');
-    if (sub) sub.textContent = tp('projects.modalNewSubtitle');
+    if (sub) sub.textContent = tpFmt('projects.modalEmptySubtitle', tp('projects.modalNewSubtitle') || '仅创建项目名称，稍后可再关联本地文件夹');
     const submitBtn = document.getElementById('project-modal-submit-btn');
     if (submitBtn) submitBtn.textContent = tp('projects.createProject');
     document.getElementById('project-modal-name').value = '';
     document.getElementById('project-modal-description').value = '';
     window._projectModalEditId = null;
     openProjectsOverlay('project-modal');
+}
+
+/** 从导入弹窗切到空项目表单，保留对话来源标记。 */
+function showEmptyProjectModalFromImport() {
+    if (projectImporting) return;
+    if (!requireProjectWrite()) return;
+    const fromChat = !!window._projectImportFromChat;
+    const fromChatSidebar = !!window._projectImportFromChatSidebar;
+    const fromWebshell = window._projectImportFromWebshellConnId || '';
+    closeProjectImportModal();
+    window._projectModalFromChat = fromChat;
+    window._projectModalFromChatSidebar = fromChatSidebar;
+    window._projectModalFromWebshellConnId = fromWebshell;
+    window._projectImportFromChat = false;
+    window._projectImportFromChatSidebar = false;
+    window._projectImportFromWebshellConnId = '';
+    showEmptyProjectModal();
 }
 
 async function showEditProjectModal(projectId, options = {}) {
@@ -2004,19 +2031,21 @@ async function showEditProjectModal(projectId, options = {}) {
     });
 }
 
-/** 从对话区「选择项目」面板打开新建项目，创建成功后自动绑定当前对话 */
+/** 从对话区「选择项目」面板打开导入本地项目，成功后自动绑定当前对话 */
 function showNewProjectModalFromChat() {
     closeChatProjectPanel();
-    window._projectModalFromChat = true;
-    showNewProjectModal();
+    if (!requireProjectWrite()) return;
+    window._projectImportFromChat = true;
+    window._projectImportFromChatSidebar = false;
+    showImportFolderModal();
 }
 
-/** 从对话侧栏新建项目，保持当前对话的项目绑定不变。 */
+/** 从对话侧栏 / 新任务菜单打开导入本地项目，保持当前对话的项目绑定不变。 */
 function showNewProjectModalFromChatSidebar() {
     if (!requireProjectWrite()) return;
-    window._projectModalFromChat = false;
-    window._projectModalFromChatSidebar = true;
-    showNewProjectModal();
+    window._projectImportFromChat = false;
+    window._projectImportFromChatSidebar = true;
+    showImportFolderModal();
 }
 
 async function saveProjectModal() {
@@ -3248,7 +3277,7 @@ function appendChatProjectFolderItem(list, project, expandedIds, conversations) 
     if (!isUnassigned && project.pinned) {
         const pinIcon = document.createElement('span');
         pinIcon.className = 'project-folder-pinned';
-        pinIcon.textContent = '📌';
+        pinIcon.innerHTML = (typeof window.csIcon === 'function') ? window.csIcon('pin', { size: 12 }) : '';
         pinIcon.title = pickerMessage(tp, 'projects.pinned', '已置顶');
         pinIcon.setAttribute('aria-label', pinIcon.title);
         label.appendChild(pinIcon);
@@ -3351,7 +3380,7 @@ function appendChatProjectConversationItem(list, conversation, project) {
     if (conversation.pinned) {
         const pinIcon = document.createElement('span');
         pinIcon.className = 'conversation-item-pinned project-conversation-pinned';
-        pinIcon.textContent = '📌';
+        pinIcon.innerHTML = (typeof window.csIcon === 'function') ? window.csIcon('pin', { size: 12 }) : '';
         pinIcon.title = pickerMessage(tp, 'projects.pinned', '已置顶');
         pinIcon.setAttribute('aria-label', pinIcon.title);
         label.appendChild(pinIcon);
@@ -3778,13 +3807,14 @@ function appendChatProjectPanelItem(list, project, selectedId, onSelect, tFn) {
     btn.setAttribute('aria-label', fullName);
     btn.setAttribute('data-selection-detail', fullDesc);
     btn.onclick = () => onSelect(project.id || '');
+    const projectFolderIconHtml = (typeof window.csIcon === 'function') ? window.csIcon('folder') : '';
     btn.innerHTML = `
-        <div class="role-selection-item-icon-main">${isNone ? '—' : '📁'}</div>
+        <div class="role-selection-item-icon-main">${isNone ? '—' : projectFolderIconHtml}</div>
         <div class="role-selection-item-content-main">
             <div class="role-selection-item-name-main" title="${escapeAttr(fullName)}">${escapeHtml(displayName)}</div>
             <div class="role-selection-item-description-main">${escapeHtml(desc)}</div>
         </div>
-        ${isSelected ? '<div class="role-selection-checkmark-main">✓</div>' : ''}
+        ${isSelected ? '<div class="role-selection-checkmark-main">' + ((typeof window.csIcon === 'function') ? window.csIcon('check', { size: 12, strokeWidth: 3 }) : '') + '</div>' : ''}
     `;
     list.appendChild(btn);
 }
@@ -4114,6 +4144,8 @@ if (document.readyState === 'loading') {
 
 window.initProjectsPage = initProjectsPage;
 window.showNewProjectModal = showNewProjectModal;
+window.showEmptyProjectModal = showEmptyProjectModal;
+window.showEmptyProjectModalFromImport = showEmptyProjectModalFromImport;
 window.showEditProjectModal = showEditProjectModal;
 window.showNewProjectModalFromChat = showNewProjectModalFromChat;
 window.showNewProjectModalFromChatSidebar = showNewProjectModalFromChatSidebar;
@@ -4197,3 +4229,396 @@ window.fetchProjectSummary = fetchProjectSummary;
 window.projectNameById = projectNameById;
 window.ensureProjectsLoaded = ensureProjectsLoaded;
 window.isProjectsCacheReady = isProjectsCacheReady;
+
+// ===== 导入本地项目文件夹（桌面端 WebView2 / 浏览器均可：webkitdirectory 原生目录选择） =====
+const PROJECT_IMPORT_JUNK_DIRS = new Set(['.git', '.svn', '.hg', '.idea', '.vs', '.vscode', 'node_modules', '__pycache__', '.gradle', 'target', '.pytest_cache', '.mypy_cache']);
+const PROJECT_IMPORT_JUNK_FILES = new Set(['.DS_Store', 'Thumbs.db', 'desktop.ini']);
+const PROJECT_IMPORT_BATCH_SIZE = 40;
+const PROJECT_IMPORT_MAX_FILES = 20000;
+const PROJECT_IMPORT_MAX_FILE_BYTES = 512 * 1024 * 1024;
+
+let projectImportFiles = [];
+let projectImportFolderName = '';
+let projectImporting = false;
+
+function projectImportShouldSkip(rel) {
+    const parts = String(rel || '').replace(/\\/g, '/').split('/').filter(Boolean);
+    if (!parts.length) return true;
+    const name = parts[parts.length - 1];
+    if (PROJECT_IMPORT_JUNK_FILES.has(name)) return true;
+    return parts.slice(0, -1).some((p) => PROJECT_IMPORT_JUNK_DIRS.has(p));
+}
+
+function formatProjectImportBytes(n) {
+    if (!Number.isFinite(n) || n <= 0) return '0 B';
+    const units = ['B', 'KB', 'MB', 'GB'];
+    let v = n;
+    let i = 0;
+    while (v >= 1024 && i < units.length - 1) {
+        v /= 1024;
+        i += 1;
+    }
+    return `${v >= 100 ? Math.round(v) : v.toFixed(1)} ${units[i]}`;
+}
+
+function resetProjectImportState() {
+    projectImportFiles = [];
+    projectImportFolderName = '';
+    projectImporting = false;
+}
+
+function closeProjectImportModal() {
+    if (projectImporting) return;
+    resetProjectImportState();
+    window._projectImportFromChat = false;
+    window._projectImportFromChatSidebar = false;
+    window._projectImportFromWebshellConnId = '';
+    closeProjectsOverlay('project-import-modal');
+}
+
+async function finishProjectImportSuccess(projectId) {
+    const fromChat = !!window._projectImportFromChat;
+    const fromChatSidebar = !!window._projectImportFromChatSidebar;
+    const fromWebshellConnId = window._projectImportFromWebshellConnId || '';
+    window._projectImportFromChat = false;
+    window._projectImportFromChatSidebar = false;
+    window._projectImportFromWebshellConnId = '';
+    closeProjectsOverlay('project-import-modal');
+    resetProjectImportState();
+    await loadProjectsList();
+    if (!projectId) return;
+    if (fromWebshellConnId && typeof applyWebshellAiProjectSelection === 'function') {
+        await applyWebshellAiProjectSelection(projectId);
+    } else if (fromChat) {
+        await applyChatProjectSelection(projectId);
+    } else if (!fromChatSidebar && typeof selectProject === 'function') {
+        await selectProject(projectId);
+    }
+}
+
+function onProjectImportTargetChange() {
+    const targetNew = document.querySelector('input[name="project-import-target"]:checked')?.value !== 'existing';
+    document.getElementById('project-import-new-fields').hidden = !targetNew;
+    document.getElementById('project-import-existing-fields').hidden = targetNew;
+}
+
+function renderProjectImportExistingOptions(preferredId) {
+    const select = document.getElementById('project-import-existing-select');
+    if (!select) return;
+    const options = (projectsCache || [])
+        .slice()
+        .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'zh-CN'))
+        .map((p) => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name || '')}${p.status === 'archived' ? '（已归档）' : ''}</option>`)
+        .join('');
+    select.innerHTML = options || `<option value="">${escapeHtml(tpFmt('projects.importNoExistingProject', '暂无可选项目，请先创建'))}</option>`;
+    if (preferredId) select.value = preferredId;
+}
+
+function showImportFolderModal(existingProjectId) {
+    if (!requireProjectWrite()) return;
+    resetProjectImportState();
+    const folderLabel = document.getElementById('project-import-folder-label');
+    if (folderLabel) folderLabel.textContent = '';
+    const summary = document.getElementById('project-import-summary');
+    if (summary) {
+        summary.hidden = false;
+        summary.textContent = tpFmt('projects.importPickHint', '将自动跳过 .git、node_modules 等与任务无关的目录');
+    }
+    document.getElementById('project-import-progress').hidden = true;
+    const nameInput = document.getElementById('project-import-name');
+    if (nameInput) nameInput.value = '';
+    const pathInput = document.getElementById('project-import-path');
+    if (pathInput) pathInput.value = '';
+    // 默认关联模式（原地读取，不复制）
+    const linkModeRadio = document.querySelector('input[name="project-import-mode"][value="link"]');
+    if (linkModeRadio) linkModeRadio.checked = true;
+    onProjectImportModeChange();
+    const useExisting = !!existingProjectId;
+    const newRadio = document.querySelector('input[name="project-import-target"][value="new"]');
+    const existRadio = document.querySelector('input[name="project-import-target"][value="existing"]');
+    if (newRadio) newRadio.checked = !useExisting;
+    if (existRadio) existRadio.checked = useExisting;
+    renderProjectImportExistingOptions(existingProjectId);
+    onProjectImportTargetChange();
+    const submitBtn = document.getElementById('project-import-submit-btn');
+    if (submitBtn) {
+        submitBtn.disabled = false;
+    }
+    openProjectsOverlay('project-import-modal');
+}
+
+// 导入方式切换：link = 关联本地路径（原地读取）；copy = 复制到项目工作区
+function onProjectImportModeChange() {
+    const mode = document.querySelector('input[name="project-import-mode"]:checked')?.value || 'link';
+    const linkMode = mode !== 'copy';
+    const linkFields = document.getElementById('project-import-link-fields');
+    const copyFields = document.getElementById('project-import-copy-fields');
+    if (linkFields) linkFields.hidden = !linkMode;
+    if (copyFields) copyFields.hidden = linkMode;
+    const hint = document.getElementById('project-import-mode-hint');
+    if (hint) {
+        hint.textContent = linkMode
+            ? tpFmt('projects.importModeLinkHint', '不复制、不上传：把路径写入项目事实黑板，智能体直接用 read_file/glob/grep 原地读取该文件夹')
+            : tpFmt('projects.importModeCopyHint', '文件复制到项目工作区，在「文件管理」中可见');
+    }
+    const submitBtn = document.getElementById('project-import-submit-btn');
+    if (submitBtn) {
+        submitBtn.textContent = linkMode
+            ? tpFmt('projects.importLinkSubmit', '关联文件夹')
+            : tpFmt('projects.importStart', '开始导入');
+    }
+}
+
+// 桌面端：调用原生「选择文件夹」对话框取得绝对路径（浏览器拿不到本机路径）
+async function browseProjectImportFolder() {
+    if (projectImporting) return;
+    const pathInput = document.getElementById('project-import-path');
+    const browseBtn = document.getElementById('project-import-browse-btn');
+    if (browseBtn) browseBtn.disabled = true;
+    try {
+        const res = await apiFetch('/api/projects/pick-folder', { method: 'POST' });
+        if (res.status === 404) {
+            // 非桌面部署：没有原生对话框，隐藏按钮只留手输路径
+            if (browseBtn) browseBtn.hidden = true;
+            return;
+        }
+        if (!(await notifyProjectApiFailure(res, 'projects.importBrowseFailed', '无法打开文件夹选择对话框'))) return;
+        const data = await res.json();
+        if (data && data.cancelled) return;
+        if (data && data.path && pathInput) {
+            pathInput.value = String(data.path);
+            const nameInput = document.getElementById('project-import-name');
+            if (nameInput && !nameInput.value.trim()) {
+                const base = String(data.path).replace(/[\\/]+$/, '').split(/[\\/]/).pop() || '';
+                nameInput.value = base.slice(0, PROJECT_NAME_MAX_LENGTH);
+            }
+            pathInput.focus();
+        }
+    } catch (error) {
+        if (typeof notifyApiError === 'function') {
+            notifyApiError(error?.message || tpFmt('projects.importBrowseFailed', '无法打开文件夹选择对话框'), 'error');
+        }
+    } finally {
+        if (browseBtn) browseBtn.disabled = false;
+    }
+}
+
+// 关联模式提交：路径 → 项目事实黑板，不复制任何文件
+async function linkProjectFolder() {
+    const pathInput = document.getElementById('project-import-path');
+    const linkedPath = (pathInput?.value || '').trim();
+    if (!linkedPath) {
+        alert(tpFmt('projects.importEnterPath', '请输入或选择本地文件夹路径'));
+        return;
+    }
+    const targetExisting = document.querySelector('input[name="project-import-target"]:checked')?.value === 'existing';
+    const body = { path: linkedPath };
+    if (targetExisting) {
+        const projectId = document.getElementById('project-import-existing-select')?.value || '';
+        if (!projectId) {
+            alert(tpFmt('projects.importSelectProject', '请选择要导入的项目'));
+            return;
+        }
+        body.projectId = projectId;
+    } else {
+        const name = (document.getElementById('project-import-name')?.value || '').trim().slice(0, PROJECT_NAME_MAX_LENGTH);
+        if (name) body.projectName = name; // 留空则后端用文件夹名
+    }
+    projectImporting = true;
+    const submitBtn = document.getElementById('project-import-submit-btn');
+    if (submitBtn) submitBtn.disabled = true;
+    try {
+        const res = await apiFetch('/api/projects/link-folder', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+        if (!(await notifyProjectApiFailure(res, 'projects.importLinkFailed', '关联失败'))) return;
+        const data = await res.json();
+        if (typeof notifyApiError === 'function') {
+            notifyApiError(tpFmt('projects.importLinkDone', '已关联 {path}，智能体可直接读取该项目文件夹', { path: data.linkedPath || linkedPath }), 'success');
+        }
+        await finishProjectImportSuccess(data.projectId);
+    } catch (error) {
+        if (typeof notifyApiError === 'function') {
+            notifyApiError(error?.message || tpFmt('projects.importLinkFailed', '关联失败'), 'error');
+        }
+    } finally {
+        projectImporting = false;
+        if (submitBtn) submitBtn.disabled = false;
+    }
+}
+
+function showImportFolderModalForCurrentProject() {
+    window._projectImportFromChat = false;
+    window._projectImportFromChatSidebar = false;
+    window._projectImportFromWebshellConnId = '';
+    showImportFolderModal(currentProjectId || undefined);
+}
+
+function pickProjectImportFolder() {
+    if (projectImporting) return;
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.multiple = true;
+    input.webkitdirectory = true;
+    input.style.display = 'none';
+    input.addEventListener('change', () => {
+        input.remove();
+        const all = Array.from(input.files || []);
+        const kept = [];
+        let skipped = 0;
+        for (const f of all) {
+            const rel = String(f.webkitRelativePath || f.name || '').replace(/\\/g, '/');
+            if (!rel || projectImportShouldSkip(rel)) {
+                skipped += 1;
+                continue;
+            }
+            if (f.size > PROJECT_IMPORT_MAX_FILE_BYTES) {
+                skipped += 1;
+                continue;
+            }
+            kept.push({ file: f, rel, size: f.size });
+        }
+        kept.sort((a, b) => a.rel.localeCompare(b.rel));
+        if (kept.length > PROJECT_IMPORT_MAX_FILES) {
+            alert(tpFmt('projects.importTooManyFiles', '文件数量过多（超过 {max} 个），请分批导入', { max: PROJECT_IMPORT_MAX_FILES }));
+            return;
+        }
+        projectImportFiles = kept;
+        projectImportFolderName = kept.length ? (kept[0].rel.split('/')[0] || '') : '';
+        const nameInput = document.getElementById('project-import-name');
+        if (nameInput && !nameInput.value.trim() && projectImportFolderName) {
+            nameInput.value = projectImportFolderName.slice(0, PROJECT_NAME_MAX_LENGTH);
+        }
+        const folderLabel = document.getElementById('project-import-folder-label');
+        if (folderLabel) folderLabel.textContent = projectImportFolderName;
+        const summary = document.getElementById('project-import-summary');
+        if (summary) {
+            summary.hidden = !kept.length;
+            const totalBytes = kept.reduce((acc, x) => acc + x.size, 0);
+            summary.textContent = tpFmt('projects.importSelectedSummary',
+                `共 {count} 个文件，{size}${skipped ? `（已跳过 ${skipped} 个无关文件）` : ''}`,
+                { count: kept.length, size: formatProjectImportBytes(totalBytes), skipped });
+        }
+    });
+    document.body.appendChild(input);
+    input.click();
+}
+
+function setProjectImportProgress(doneBytes, totalBytes, doneFiles, totalFiles) {
+    const wrap = document.getElementById('project-import-progress');
+    const fill = document.getElementById('project-import-progress-fill');
+    const text = document.getElementById('project-import-progress-text');
+    if (!wrap || !fill || !text) return;
+    wrap.hidden = false;
+    const percent = totalBytes > 0 ? Math.min(100, Math.round((doneBytes / totalBytes) * 100)) : 0;
+    fill.style.width = `${percent}%`;
+    text.textContent = tpFmt('projects.importProgressText',
+        `已导入 {done}/{total} 个文件（{percent}%）`,
+        { done: doneFiles, total: totalFiles, percent });
+}
+
+async function startProjectFolderImport() {
+    if (projectImporting) return;
+    if (!requireProjectWrite()) return;
+    // link 模式：只登记路径，不复制文件
+    if (document.querySelector('input[name="project-import-mode"]:checked')?.value !== 'copy') {
+        await linkProjectFolder();
+        return;
+    }
+    if (!projectImportFiles.length) {
+        alert(tpFmt('projects.importNoFolder', '请先选择要导入的文件夹'));
+        return;
+    }
+    const targetExisting = document.querySelector('input[name="project-import-target"]:checked')?.value === 'existing';
+    let projectId = '';
+    let projectName = '';
+    if (targetExisting) {
+        projectId = document.getElementById('project-import-existing-select')?.value || '';
+        if (!projectId) {
+            alert(tpFmt('projects.importSelectProject', '请选择要导入的项目'));
+            return;
+        }
+    } else {
+        projectName = (document.getElementById('project-import-name')?.value || '').trim().slice(0, PROJECT_NAME_MAX_LENGTH);
+        if (!projectName) {
+            projectName = projectImportFolderName.slice(0, PROJECT_NAME_MAX_LENGTH);
+        }
+        if (!projectName) {
+            alert(tpFmt('projects.enterProjectName', '请输入项目名称'));
+            return;
+        }
+    }
+
+    projectImporting = true;
+    const submitBtn = document.getElementById('project-import-submit-btn');
+    const pickBtn = document.getElementById('project-import-pick-btn');
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = tpFmt('projects.importImporting', '正在导入…');
+    }
+    if (pickBtn) pickBtn.disabled = true;
+
+    const totalBytes = projectImportFiles.reduce((acc, x) => acc + x.size, 0);
+    let doneBytes = 0;
+    let doneFiles = 0;
+    let imported = 0;
+    try {
+        for (let off = 0; off < projectImportFiles.length; off += PROJECT_IMPORT_BATCH_SIZE) {
+            const batch = projectImportFiles.slice(off, off + PROJECT_IMPORT_BATCH_SIZE);
+            const form = new FormData();
+            if (projectId) {
+                form.append('projectId', projectId);
+            } else if (projectName) {
+                form.append('projectName', projectName);
+                form.append('description', '');
+            }
+            for (const item of batch) {
+                form.append('paths', item.rel);
+                form.append('files', item.file, item.file.name);
+            }
+            const res = await apiFetch('/api/projects/import-folder', { method: 'POST', body: form });
+            if (!(await notifyProjectApiFailure(res, 'projects.importFailed', '导入失败'))) {
+                if (imported > 0 && typeof notifyApiError === 'function') {
+                    notifyApiError(tpFmt('projects.importPartialFailed', '已导入 {count} 个文件后中断，可重新导入继续', { count: imported }), 'error');
+                }
+                return;
+            }
+            const data = await res.json();
+            if (!projectId) {
+                projectId = String(data.projectId || '');
+                projectName = String(data.projectName || projectName);
+            }
+            imported += Number(data.imported || 0);
+            for (const item of batch) doneBytes += item.size;
+            doneFiles += batch.length;
+            setProjectImportProgress(doneBytes, totalBytes, doneFiles, projectImportFiles.length);
+        }
+        if (typeof notifyApiError === 'function') {
+            notifyApiError(tpFmt('projects.importDone', '已导入 {count} 个文件到项目「{name}」工作区', { count: imported, name: projectName }), 'success');
+        }
+        await finishProjectImportSuccess(projectId);
+    } catch (error) {
+        if (typeof notifyApiError === 'function') {
+            notifyApiError(error?.message || tpFmt('projects.importFailed', '导入失败'), 'error');
+        }
+    } finally {
+        projectImporting = false;
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = tpFmt('projects.importStart', '开始导入');
+        }
+        if (pickBtn) pickBtn.disabled = false;
+    }
+}
+
+window.showImportFolderModal = showImportFolderModal;
+window.showImportFolderModalForCurrentProject = showImportFolderModalForCurrentProject;
+window.closeProjectImportModal = closeProjectImportModal;
+window.pickProjectImportFolder = pickProjectImportFolder;
+window.startProjectFolderImport = startProjectFolderImport;
+window.onProjectImportTargetChange = onProjectImportTargetChange;
+window.onProjectImportModeChange = onProjectImportModeChange;
+window.browseProjectImportFolder = browseProjectImportFolder;
+window.linkProjectFolder = linkProjectFolder;

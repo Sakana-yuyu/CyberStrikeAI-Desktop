@@ -29,6 +29,7 @@ skills/.eino/
 # Build outputs
 cyberstrike-ai
 cyberstrike-ai.exe
+CyberStrikeAI-Desktop*.exe
 *.test
 bin/
 dist/
@@ -66,3 +67,7 @@ Thumbs.db
 desktop.ini
 .idea/
 .vscode/
+
+# Desktop build artifacts
+cmd/desktop/resource_windows_amd64.syso
+cmd/desktop/icon.ico

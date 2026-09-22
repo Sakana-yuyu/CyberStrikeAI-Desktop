@@ -427,7 +427,7 @@
         const check = document.createElement('span');
         check.className = 'workflow-tool-select-check';
         check.setAttribute('aria-hidden', 'true');
-        check.textContent = '✓';
+        check.innerHTML = (typeof window.csIcon === 'function') ? window.csIcon('check', { size: 11, strokeWidth: 3 }) : '';
         const labelEl = document.createElement('span');
         labelEl.className = 'workflow-tool-select-label';
         labelEl.textContent = label;
@@ -656,7 +656,7 @@
             const check = document.createElement('span');
             check.className = 'workflow-form-select-check';
             check.setAttribute('aria-hidden', 'true');
-            check.textContent = '✓';
+            check.innerHTML = (typeof window.csIcon === 'function') ? window.csIcon('check', { size: 11, strokeWidth: 3 }) : '';
             const label = document.createElement('span');
             label.className = 'workflow-form-select-label';
             label.textContent = opt.textContent;
@@ -1398,11 +1398,12 @@
         }
         wrap.hidden = false;
         const activeIndex = WORKFLOW_AI_PROGRESS_STEPS.indexOf(activeStep);
+        const wfStepCheckIcon = (typeof window.csIcon === 'function') ? window.csIcon('check', { size: 12, strokeWidth: 3 }) : '';
         wrap.innerHTML = WORKFLOW_AI_PROGRESS_STEPS.map(function (step, index) {
             const complete = done || (activeIndex >= 0 && index < activeIndex);
             const active = !done && step === activeStep;
             return `<span class="${complete ? 'is-complete' : ''} ${active ? 'is-active' : ''}">
-                <b>${complete ? '✓' : index + 1}</b>
+                <b>${complete ? wfStepCheckIcon : index + 1}</b>
                 <small>${esc(workflowAiStepLabel(step))}</small>
             </span>`;
         }).join('');
@@ -2673,9 +2674,9 @@
         let html = '';
         if (message) html += `<div class="workflow-package-status${type ? ' is-' + esc(type) : ''}"><span class="workflow-package-status-icon" aria-hidden="true"></span><span>${esc(message)}</span></div>`;
         if (conflictState === 'none') {
-            html += `<div class="workflow-package-resolution-hero is-success"><span class="workflow-package-resolution-icon" aria-hidden="true">✓</span><div><strong>${esc(workflowPackageText('workflows.package.resolution.createTitle', '可以安全创建'))}</strong><small>${esc(workflowPackageText('workflows.package.resolution.createHint', '导入后会创建一个新的本地工作流。'))}</small></div></div>`;
+            html += `<div class="workflow-package-resolution-hero is-success"><span class="workflow-package-resolution-icon" aria-hidden="true">${(typeof window.csIcon === 'function') ? window.csIcon('check-circle', {size:22}) : ''}</span><div><strong>${esc(workflowPackageText('workflows.package.resolution.createTitle', '可以安全创建'))}</strong><small>${esc(workflowPackageText('workflows.package.resolution.createHint', '导入后会创建一个新的本地工作流。'))}</small></div></div>`;
         } else if (conflictState === 'identical') {
-            html += `<div class="workflow-package-resolution-hero is-success"><span class="workflow-package-resolution-icon" aria-hidden="true">✓</span><div><strong>${esc(workflowPackageText('workflows.package.resolution.identicalTitle', '无需重复导入'))}</strong><small>${esc(workflowPackageText('workflows.package.resolution.identicalHint', '内容已经存在，无需重复导入。'))}</small></div></div>`;
+            html += `<div class="workflow-package-resolution-hero is-success"><span class="workflow-package-resolution-icon" aria-hidden="true">${(typeof window.csIcon === 'function') ? window.csIcon('check-circle', {size:22}) : ''}</span><div><strong>${esc(workflowPackageText('workflows.package.resolution.identicalTitle', '无需重复导入'))}</strong><small>${esc(workflowPackageText('workflows.package.resolution.identicalHint', '内容已经存在，无需重复导入。'))}</small></div></div>`;
         } else {
             html += workflowPackageResolutionCard('keep_existing', workflowPackageText('workflows.package.resolution.keepExisting', '保留本地版本'), workflowPackageText('workflows.package.resolution.keepExistingHint', '不修改当前本地工作流；导入记录会保留。'), action === 'keep_existing');
             if (!workflowPackageState.riskChoicesVisible) {

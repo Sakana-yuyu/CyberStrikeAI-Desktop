@@ -182,15 +182,15 @@ function einoMainStreamPlanningTitle(responseData) {
         else if (a === 'executor') key = 'chat.planExecuteStreamExecutor';
         else if (a === 'replanner' || a === 'execute_replan' || a === 'plan_execute_replan') key = 'chat.planExecuteStreamReplanning';
         const label = typeof window.t === 'function' ? window.t(key) : '输出';
-        return prefix + '📝 ' + label;
+        return prefix + '' + label;
     }
     // eino_single / deep / supervisor：主通道是模型流式输出，不是「规划」；模型偶发复述工具 stdout 时，旧文案易被误认为工具结果标题。
     if (orch != null && String(orch).trim() !== '' && orch !== 'plan_execute') {
         const streamLabel = typeof window.t === 'function' ? window.t('chat.assistantStreamPhase') : '助手输出';
-        return prefix + '📝 ' + streamLabel;
+        return prefix + '' + streamLabel;
     }
     const plan = typeof window.t === 'function' ? window.t('chat.planning') : '规划中';
-    return prefix + '📝 ' + plan;
+    return prefix + '' + plan;
 }
 
 /**
@@ -2777,7 +2777,7 @@ function formatEinoRunRetryTitle(data) {
     const d = data && typeof data === 'object' ? data : {};
     const base = typeof window.t === 'function'
         ? window.t('chat.einoRunRetryTitle')
-        : '🔁 临时错误重试';
+        : '临时错误重试';
     const attempt = Number(d.attempt || 0);
     const maxAttempts = Number(d.maxAttempts || 0);
     if (Number.isFinite(attempt) && attempt > 0 && Number.isFinite(maxAttempts) && maxAttempts > 0) {
@@ -2790,7 +2790,7 @@ function formatEinoModelRetryTitle(data) {
     const d = data && typeof data === 'object' ? data : {};
     const base = typeof window.t === 'function'
         ? window.t('chat.einoModelRetryTitle')
-        : '🔁 模型调用重试';
+        : '模型调用重试';
     const attempt = Number(d.attempt || 0);
     if (Number.isFinite(attempt) && attempt > 0) {
         return base + '（' + attempt + '）';
@@ -2816,7 +2816,7 @@ function formatEinoModelFailoverTitle(data) {
     const d = data && typeof data === 'object' ? data : {};
     const base = typeof window.t === 'function'
         ? window.t('chat.einoModelFailoverTitle')
-        : '🔀 切换备用模型';
+        : '切换备用模型';
     const attempt = Number(d.attempt || 0);
     if (Number.isFinite(attempt) && attempt > 0) {
         return base + '（' + attempt + '）';
@@ -3079,7 +3079,7 @@ function handleStreamEvent(event, progressElement, progressId,
             const d = event.data || {};
             const name = d.workflowName || d.workflowId || '';
             addTimelineItem(timeline, 'workflow_start', {
-                title: '🧭 工作流开始' + (name ? (' · ' + name) : ''),
+                title: '工作流开始' + (name ? (' · ' + name) : ''),
                 message: event.message || '',
                 data: d
             });
@@ -3090,7 +3090,7 @@ function handleStreamEvent(event, progressElement, progressId,
             const d = event.data || {};
             const name = d.workflowName || d.workflowId || '';
             addTimelineItem(timeline, 'workflow_done', {
-                title: '✅ 工作流完成' + (name ? (' · ' + name) : ''),
+                title: '工作流完成' + (name ? (' · ' + name) : ''),
                 message: event.message || '',
                 data: d
             });
@@ -3105,7 +3105,7 @@ function handleStreamEvent(event, progressElement, progressId,
                 clearTimelineStreamStates(progressId);
             }
             addTimelineItem(timeline, 'workflow_node_start', {
-                title: '▶ 节点开始' + (label ? (' · ' + label) : ''),
+                title: '节点开始' + (label ? (' · ' + label) : ''),
                 message: event.message || '',
                 data: d
             });
@@ -3120,9 +3120,9 @@ function handleStreamEvent(event, progressElement, progressId,
             let title;
             if (nodeType === 'condition') {
                 const matched = d.matched === true || d.matched === 'true' || (d.output && (d.output.matched === true || d.output.matched === 'true'));
-                title = (matched ? '✅' : '🔀') + ' 条件判断' + (label ? (' · ' + label) : '') + ' → ' + (matched ? '是' : '否');
+                title = (matched ? '' : '') + ' 条件判断' + (label ? (' · ' + label) : '') + ' → ' + (matched ? '是' : '否');
             } else {
-                const icon = status === 'failed' ? '❌' : (status === 'skipped' ? '⏭️' : '✅');
+                const icon = status === 'failed' ? '' : (status === 'skipped' ? '' : '');
                 title = icon + ' 节点完成' + (label ? (' · ' + label) : '') + (status ? ('（' + status + '）') : '');
             }
             addTimelineItem(timeline, 'workflow_node_result', {
@@ -3140,7 +3140,7 @@ function handleStreamEvent(event, progressElement, progressId,
             const target = d.targetLabel || d.targetId || '';
             const taken = event.type === 'workflow_branch_taken';
             addTimelineItem(timeline, event.type, {
-                title: (taken ? '➡️' : '⏭️') + (taken ? ' 执行分支' : ' 跳过分支') + (branch ? (' · ' + branch) : '') + (target ? (' → ' + target) : ''),
+                title: (taken ? '' : '') + (taken ? ' 执行分支' : ' 跳过分支') + (branch ? (' · ' + branch) : '') + (target ? (' → ' + target) : ''),
                 message: event.message || '',
                 data: d
             });
@@ -3151,7 +3151,7 @@ function handleStreamEvent(event, progressElement, progressId,
             const d = event.data || {};
             const tool = d.tool || d.toolName || '';
             addTimelineItem(timeline, 'workflow_tool_start', {
-                title: '🔧 工具节点' + (tool ? (' · ' + tool) : ''),
+                title: '工具节点' + (tool ? (' · ' + tool) : ''),
                 message: event.message || '',
                 data: d
             });
@@ -3162,7 +3162,7 @@ function handleStreamEvent(event, progressElement, progressId,
             const d = event.data || {};
             const label = d.label || d.nodeId || '';
             addTimelineItem(timeline, 'workflow_agent_output', {
-                title: '🤖 Agent 输出' + (label ? (' · ' + label) : ''),
+                title: 'Agent 输出' + (label ? (' · ' + label) : ''),
                 message: event.message || '',
                 data: d
             });
@@ -3171,7 +3171,7 @@ function handleStreamEvent(event, progressElement, progressId,
 
         case 'workflow_hitl_checkpoint': {
             addTimelineItem(timeline, 'workflow_hitl_checkpoint', {
-                title: '🧑‍⚖️ 人工确认检查点',
+                title: '人工确认检查点',
                 message: event.message || '',
                 data: event.data || {}
             });
@@ -3181,7 +3181,7 @@ function handleStreamEvent(event, progressElement, progressId,
         case 'workflow_hitl_waiting': {
             const d = event.data || {};
             const hitlItemId = addTimelineItem(timeline, 'workflow_hitl_waiting', {
-                title: '🧑‍⚖️ 工作流等待审批',
+                title: '工作流等待审批',
                 message: event.message || '',
                 data: d
             });
@@ -3191,7 +3191,7 @@ function handleStreamEvent(event, progressElement, progressId,
 
         case 'workflow_hitl_resumed': {
             addTimelineItem(timeline, 'workflow_hitl_resumed', {
-                title: '✅ 审批已通过',
+                title: '审批已通过',
                 message: event.message || '人工审批已通过，继续执行',
                 data: event.data || {}
             });
@@ -3200,7 +3200,7 @@ function handleStreamEvent(event, progressElement, progressId,
 
         case 'workflow_hitl_rejected': {
             addTimelineItem(timeline, 'workflow_hitl_rejected', {
-                title: '❌ 审批已拒绝',
+                title: '审批已拒绝',
                 message: event.message || '',
                 data: event.data || {}
             });
@@ -3209,7 +3209,7 @@ function handleStreamEvent(event, progressElement, progressId,
 
         case 'workflow_paused': {
             addTimelineItem(timeline, 'workflow_paused', {
-                title: '⏸️ 工作流已暂停',
+                title: '工作流已暂停',
                 message: event.message || '',
                 data: event.data || {}
             });
@@ -3227,7 +3227,7 @@ function handleStreamEvent(event, progressElement, progressId,
             if (event.type === 'eino_trace_run') glyph = '●';
             else if (event.type === 'eino_trace_start') glyph = '▶';
             else if (event.type === 'eino_trace_end') glyph = '■';
-            else if (event.type === 'eino_trace_error') glyph = '✖';
+            else if (event.type === 'eino_trace_error') glyph = '×';
             const title = '[Eino] ' + glyph + ' ' + (comp || 'component') + (name ? '/' + name : '');
             const parts = [];
             if (d.runId) parts.push('run=' + String(d.runId));
@@ -3271,8 +3271,7 @@ function handleStreamEvent(event, progressElement, progressId,
             const labelBase = typeof window.t === 'function'
                 ? window.t(timelineType === 'reasoning_chain' ? 'chat.reasoningChain' : 'chat.aiThinking')
                 : (timelineType === 'reasoning_chain' ? '推理过程' : 'AI思考');
-            const emoji = timelineType === 'reasoning_chain' ? '🔗' : '🤔';
-            const title = timelineAgentBracketPrefix(d) + emoji + ' ' + labelBase;
+            const title = timelineAgentBracketPrefix(d) + labelBase;
             const itemId = addTimelineItem(timeline, timelineType, {
                 title: title,
                 message: ' ',
@@ -3330,9 +3329,8 @@ function handleStreamEvent(event, progressElement, progressId,
             const labelBase = typeof window.t === 'function'
                 ? window.t(timelineType === 'reasoning_chain' ? 'chat.reasoningChain' : 'chat.aiThinking')
                 : (timelineType === 'reasoning_chain' ? '推理过程' : 'AI思考');
-            const emoji = timelineType === 'reasoning_chain' ? '🔗' : '🤔';
             addTimelineItem(timeline, timelineType, {
-                title: timelineAgentBracketPrefix(event.data) + emoji + ' ' + labelBase,
+                title: timelineAgentBracketPrefix(event.data) + labelBase,
                 message: event.message,
                 data: event.data
             });
@@ -3346,7 +3344,7 @@ function handleStreamEvent(event, progressElement, progressId,
 
         case 'warning':
             addTimelineItem(timeline, 'warning', {
-                title: '⚠️',
+                title: '',
                 message: event.message,
                 data: event.data
             });
@@ -3428,7 +3426,7 @@ function handleStreamEvent(event, progressElement, progressId,
                 renderInlineHitlApproval(hitlTargetItem.id, event.data || {});
             } else {
                 const hitlItemId = addTimelineItem(timeline, 'hitl_interrupt', {
-                    title: '🧑‍⚖️ HITL',
+                    title: 'HITL',
                     message: event.message,
                     data: event.data
                 });
@@ -3446,7 +3444,7 @@ function handleStreamEvent(event, progressElement, progressId,
             hitlPendingInterruptTracker.ready = true;
             if (!resolveInlineHitlDecision(timeline, event.data || {}, 'approve', event.message)) {
                 addTimelineItem(timeline, 'progress', {
-                    title: '✅ HITL',
+                    title: 'HITL',
                     message: event.message,
                     data: event.data
                 });
@@ -3463,7 +3461,7 @@ function handleStreamEvent(event, progressElement, progressId,
             hitlPendingInterruptTracker.ready = true;
             if (!resolveInlineHitlDecision(timeline, event.data || {}, 'reject', event.message)) {
                 addTimelineItem(timeline, 'error', {
-                    title: '⛔ HITL',
+                    title: 'HITL',
                     message: event.message,
                     data: event.data
                 });
@@ -3480,7 +3478,7 @@ function handleStreamEvent(event, progressElement, progressId,
             const d = event.data || {};
             const titleBase = typeof window.t === 'function'
                 ? window.t('chat.userInterruptContinueTitle')
-                : '⏸️ 用户中断并继续';
+                : '用户中断并继续';
             addTimelineItem(timeline, 'user_interrupt_continue', {
                 title: titleBase,
                 message: event.message || '',
@@ -3495,7 +3493,7 @@ function handleStreamEvent(event, progressElement, progressId,
             const agent = d.einoAgent ? String(d.einoAgent) : '';
             const title = typeof window.t === 'function'
                 ? window.t('chat.einoStreamErrorTitle', { agent: agent || '-' })
-                : (agent ? ('⚠️ Eino 流式中断（' + agent + '）') : '⚠️ Eino 流式中断');
+                : (agent ? ('Eino 流式中断（' + agent + '）') : 'Eino 流式中断');
             addTimelineItem(timeline, 'warning', {
                 title: title,
                 message: event.message || (typeof window.t === 'function'
@@ -3510,7 +3508,7 @@ function handleStreamEvent(event, progressElement, progressId,
             const d = event.data || {};
             const title = typeof window.t === 'function'
                 ? window.t('chat.einoEmptyResponseContinueTitle')
-                : '🔁 自动续跑（无助手正文）';
+                : '自动续跑（无助手正文）';
             addTimelineItem(timeline, 'warning', {
                 title: title,
                 message: event.message || (typeof window.t === 'function'
@@ -3565,7 +3563,7 @@ function handleStreamEvent(event, progressElement, progressId,
 
         case 'iteration_limit_reached': {
             addTimelineItem(timeline, 'warning', {
-                title: typeof window.t === 'function' ? window.t('chat.iterationLimitReachedTitle') : '⛔ 达到迭代上限',
+                title: typeof window.t === 'function' ? window.t('chat.iterationLimitReachedTitle') : '达到迭代上限',
                 message: event.message || (typeof window.t === 'function'
                     ? window.t('chat.iterationLimitReachedMessage')
                     : '已达到最大迭代次数，任务已停止继续自动迭代。'),
@@ -3580,7 +3578,7 @@ function handleStreamEvent(event, progressElement, progressId,
             const count = Number(d.pendingCount || 0);
             const countText = Number.isFinite(count) && count > 0 ? String(count) : '?';
             addTimelineItem(timeline, 'warning', {
-                title: typeof window.t === 'function' ? window.t('chat.einoPendingOrphanedTitle') : '🧹 工具调用收尾补偿',
+                title: typeof window.t === 'function' ? window.t('chat.einoPendingOrphanedTitle') : '工具调用收尾补偿',
                 message: event.message || (typeof window.t === 'function'
                     ? window.t('chat.einoPendingOrphanedMessage', { count: countText })
                     : ('检测到 ' + countText + ' 个未闭合工具调用，已自动标记为失败并收尾。')),
@@ -3611,7 +3609,7 @@ function handleStreamEvent(event, progressElement, progressId,
             }
             const toolCallTitle = formatToolCallTimelineTitle(toolName, index, total);
             const toolCallItemId = addTimelineItem(timeline, 'tool_call', {
-                title: timelineAgentBracketPrefix(toolInfo) + '🔧 ' + toolCallTitle,
+                title: timelineAgentBracketPrefix(toolInfo) + '' + toolCallTitle,
                 message: event.message,
                 data: toolInfo,
                 processDetailId: toolInfo.processDetailId || '',
@@ -3643,7 +3641,7 @@ function handleStreamEvent(event, progressElement, progressId,
             const success = getToolResultDisplayState(resultInfo).success;
             const resultDisplayState = getToolResultDisplayState(resultInfo, { rawText: event.message || '' });
             const backgroundRunning = resultDisplayState.kind === 'background_running';
-            const statusIcon = resultDisplayState.kind === 'blocked' ? '🛡' : (backgroundRunning ? '⏳' : (success ? '✅' : '❌'));
+            const statusIcon = resultDisplayState.kind === 'blocked' ? '' : (backgroundRunning ? '' : (success ? '' : ''));
             const resultToolCallId = resultInfo.toolCallId || null;
             const resultStatusForCall = toolDisplayStatusFromState(resultDisplayState);
             const resultExecText = resultDisplayState.kind === 'blocked'
@@ -3715,7 +3713,7 @@ function handleStreamEvent(event, progressElement, progressId,
             const streamingLabel = typeof window.t === 'function' ? window.t('timeline.running') : '执行中...';
             const replyTitleBase = typeof window.t === 'function' ? window.t('chat.einoAgentReplyTitle') : '子代理回复';
             const itemId = addTimelineItem(timeline, 'eino_agent_reply', {
-                title: timelineAgentBracketPrefix(d) + '💬 ' + replyTitleBase + ' · ' + streamingLabel,
+                title: timelineAgentBracketPrefix(d) + '' + replyTitleBase + ' · ' + streamingLabel,
                 message: ' ',
                 data: d,
                 expanded: false
@@ -3765,7 +3763,7 @@ function handleStreamEvent(event, progressElement, progressId,
                     const titleEl = item.querySelector('.timeline-item-title');
                     if (titleEl) {
                         const replyTitleBase = typeof window.t === 'function' ? window.t('chat.einoAgentReplyTitle') : '子代理回复';
-                        titleEl.textContent = timelineAgentBracketPrefix(d) + '💬 ' + replyTitleBase;
+                        titleEl.textContent = timelineAgentBracketPrefix(d) + '' + replyTitleBase;
                     }
                     let contentEl = item.querySelector('.timeline-item-content');
                     if (!contentEl) {
@@ -3788,7 +3786,7 @@ function handleStreamEvent(event, progressElement, progressId,
             const replyData = event.data || {};
             const replyTitleBase = typeof window.t === 'function' ? window.t('chat.einoAgentReplyTitle') : '子代理回复';
             addTimelineItem(timeline, 'eino_agent_reply', {
-                title: timelineAgentBracketPrefix(replyData) + '💬 ' + replyTitleBase,
+                title: timelineAgentBracketPrefix(replyData) + '' + replyTitleBase,
                 message: event.message || '',
                 data: replyData,
                 expanded: false
@@ -3819,14 +3817,14 @@ function handleStreamEvent(event, progressElement, progressId,
             const taskCancelledText = typeof window.t === 'function' ? window.t('chat.taskCancelled') : '任务已取消';
             if (timeline) {
                 addTimelineItem(timeline, 'cancelled', {
-                    title: '⛔ ' + taskCancelledText,
+                    title: '' + taskCancelledText,
                     message: event.message,
                     data: event.data
                 });
             }
             const cancelTitle = document.querySelector(`#${progressId} .progress-stage`);
             if (cancelTitle) {
-                cancelTitle.textContent = '⛔ ' + taskCancelledText;
+                cancelTitle.textContent = '' + taskCancelledText;
             }
             const cancelProgressContainer = document.querySelector(`#${progressId} .progress-container`);
             if (cancelProgressContainer) {
@@ -4042,7 +4040,7 @@ function handleStreamEvent(event, progressElement, progressId,
                 addTimelineItem(timeline, 'planning', {
                     title: typeof einoMainStreamPlanningTitle === 'function'
                         ? einoMainStreamPlanningTitle(responseData)
-                        : ('📝 ' + (typeof window.t === 'function' ? window.t('chat.planning') : '规划中')),
+                        : ('' + (typeof window.t === 'function' ? window.t('chat.planning') : '规划中')),
                     message: event.message,
                     data: responseData,
                     expanded: false
@@ -4098,7 +4096,7 @@ function handleStreamEvent(event, progressElement, progressId,
             // 显示错误
             if (timeline) {
                 addTimelineItem(timeline, 'error', {
-                    title: '❌ ' + (typeof window.t === 'function' ? window.t('chat.error') : '错误'),
+                    title: '' + (typeof window.t === 'function' ? window.t('chat.error') : '错误'),
                     message: event.message,
                     data: event.data
                 });
@@ -4107,7 +4105,7 @@ function handleStreamEvent(event, progressElement, progressId,
             // 更新进度标题为错误状态
             const errorTitle = document.querySelector(`#${progressId} .progress-stage`);
             if (errorTitle) {
-                errorTitle.textContent = '❌ ' + (typeof window.t === 'function' ? window.t('chat.executionFailed') : '执行失败');
+                errorTitle.textContent = '' + (typeof window.t === 'function' ? window.t('chat.executionFailed') : '执行失败');
             }
             
             // 更新进度容器为已完成状态（添加completed类）
@@ -4155,7 +4153,7 @@ function handleStreamEvent(event, progressElement, progressId,
             if (event.data && event.data.workflowStatus === 'awaiting_hitl') {
                 const waitingTitle = document.querySelector(`#${progressId} .progress-stage`);
                 if (waitingTitle) {
-                    waitingTitle.textContent = '⏸️ ' + (typeof window.t === 'function' ? window.t('chat.workflowAwaitingApproval') : '工作流等待审批');
+                    waitingTitle.textContent = '' + (typeof window.t === 'function' ? window.t('chat.workflowAwaitingApproval') : '工作流等待审批');
                 }
                 if (progressTaskState.has(progressId)) {
                     finalizeProgressTask(progressId, typeof window.t === 'function' ? window.t('chat.workflowAwaitingApproval') : '等待审批');
@@ -4181,7 +4179,7 @@ function handleStreamEvent(event, progressElement, progressId,
             // 完成，更新进度标题（如果进度消息还存在）
             const doneTitle = document.querySelector(`#${progressId} .progress-stage`);
             if (doneTitle) {
-                doneTitle.textContent = '✅ ' + (typeof window.t === 'function' ? window.t('chat.penetrationTestComplete') : '渗透测试完成');
+                doneTitle.textContent = '' + (typeof window.t === 'function' ? window.t('chat.penetrationTestComplete') : '渗透测试完成');
             }
             // 更新对话ID
             if (event.data && event.data.conversationId) {
@@ -4642,7 +4640,7 @@ function buildInlineHitlApprovalHtml(data, opts) {
             : '';
         return toolHeading + `
             <div class="hitl-codex-state hitl-codex-state--${ok ? 'approved' : 'rejected'}">
-                <span class="hitl-codex-state-icon" aria-hidden="true">${ok ? '✓' : '×'}</span>
+                <span class="hitl-codex-state-icon" aria-hidden="true">${ok ? ((typeof window.csIcon==='function')?window.csIcon('check',{size:13,strokeWidth:3}):'✓') : ((typeof window.csIcon==='function')?window.csIcon('x',{size:13,strokeWidth:3}):'×')}</span>
                 <strong>${escapeHtml(statusText)}</strong>
             </div>
             ${comment}
@@ -5058,7 +5056,7 @@ function markInlineHitlDecision(panel, decision, message) {
     panel.classList.add('hitl-inline-done');
     panel.innerHTML = `
         <div class="hitl-codex-state hitl-codex-state--${ok ? 'approved' : 'rejected'}">
-            <span class="hitl-codex-state-icon" aria-hidden="true">${ok ? '✓' : '×'}</span>
+            <span class="hitl-codex-state-icon" aria-hidden="true">${ok ? ((typeof window.csIcon==='function')?window.csIcon('check',{size:13,strokeWidth:3}):'✓') : ((typeof window.csIcon==='function')?window.csIcon('x',{size:13,strokeWidth:3}):'×')}</span>
             <strong>${escapeHtml(ok ? '已允许一次' : '人工审批已拒绝')}</strong>
         </div>
         ${message ? '<p class="hitl-codex-explainer">' + escapeHtml(message) + '</p>' : ''}
@@ -5253,7 +5251,7 @@ async function restoreWorkflowHitlInlineForConversation(conversationId) {
                 const timeline = detailsContainer.querySelector('.progress-timeline');
                 if (timeline && typeof addTimelineItem === 'function') {
                     const itemId = addTimelineItem(timeline, 'workflow_hitl_waiting', {
-                        title: '🧑‍⚖️ 工作流等待审批',
+                        title: '工作流等待审批',
                         message: hitlData.label || '',
                         data: hitlData
                     });
@@ -6421,19 +6419,19 @@ function getToolCallStatusPresentation(status) {
         return { status: normalized, itemClass: 'tool-call-running', badgeClass: 'tool-status-running', label: getBackgroundRunningToolLabel(), icon: '' };
     }
     if (normalized === 'completed') {
-        return { status: normalized, itemClass: 'tool-call-completed', badgeClass: 'tool-status-completed', label: translate('timeline.completed', '已完成'), icon: '✅ ' };
+        return { status: normalized, itemClass: 'tool-call-completed', badgeClass: 'tool-status-completed', label: translate('timeline.completed', '已完成'), icon: '' };
     }
     if (normalized === 'failed') {
-        return { status: normalized, itemClass: 'tool-call-failed', badgeClass: 'tool-status-failed', label: translate('timeline.execFailed', '执行失败'), icon: '❌ ' };
+        return { status: normalized, itemClass: 'tool-call-failed', badgeClass: 'tool-status-failed', label: translate('timeline.execFailed', '执行失败'), icon: '' };
     }
     if (normalized === 'blocked') {
-        return { status: normalized, itemClass: 'tool-call-blocked', badgeClass: 'tool-status-blocked', label: translate('timeline.blocked', '已拦截'), icon: '🛡 ' };
+        return { status: normalized, itemClass: 'tool-call-blocked', badgeClass: 'tool-status-blocked', label: translate('timeline.blocked', '已拦截'), icon: '' };
     }
     if (normalized === 'cancelled' || normalized === 'canceled') {
-        return { status: 'cancelled', itemClass: 'tool-call-failed', badgeClass: 'tool-status-failed', label: translate('tasks.statusCancelled', '已取消'), icon: '⛔ ' };
+        return { status: 'cancelled', itemClass: 'tool-call-failed', badgeClass: 'tool-status-failed', label: translate('tasks.statusCancelled', '已取消'), icon: '' };
     }
     if (normalized === 'result_missing') {
-        return { status: normalized, itemClass: 'tool-call-incomplete', badgeClass: 'tool-status-incomplete', label: translate('timeline.resultMissing', '结果记录缺失'), icon: '⚠️ ' };
+        return { status: normalized, itemClass: 'tool-call-incomplete', badgeClass: 'tool-status-incomplete', label: translate('timeline.resultMissing', '结果记录缺失'), icon: '' };
     }
     return null;
 }
@@ -6457,7 +6455,7 @@ function applyToolCallStatus(item, status) {
     item.classList.add(presentation.itemClass);
     const badge = document.createElement('span');
     badge.className = 'tool-status-badge ' + presentation.badgeClass;
-    badge.textContent = presentation.icon + presentation.label;
+    badge.textContent = presentation.label;
     titleElement.appendChild(badge);
 }
 
@@ -6764,9 +6762,11 @@ function addTimelineItem(timeline, type, options) {
     const timeOpts = getTimeFormatOptions();
     const time = eventTime.toLocaleTimeString(timeLocale, timeOpts);
     
+    const timelineIconHtml = (typeof window.csTimelineIcon === 'function') ? window.csTimelineIcon(type) : '';
     let content = `
         <div class="timeline-item-header">
             <span class="timeline-item-time">${time}</span>
+            ${timelineIconHtml ? `<span class="timeline-item-icon" aria-hidden="true">${timelineIconHtml}</span>` : ''}
             <span class="timeline-item-title">${escapeHtml(options.title || '')}</span>
         </div>
     `;
@@ -7449,7 +7449,7 @@ function syncMonitorFilterSelect(selectId) {
         const check = document.createElement('span');
         check.className = 'monitor-filter-select-check';
         check.setAttribute('aria-hidden', 'true');
-        check.textContent = '✓';
+        check.innerHTML = (typeof window.csIcon === 'function') ? window.csIcon('check', { size: 11, strokeWidth: 3 }) : '';
         const label = document.createElement('span');
         label.className = 'monitor-filter-select-label';
         label.textContent = opt.textContent;
@@ -9592,10 +9592,10 @@ function refreshProgressAndTimelineI18n() {
                     einoAgent: item.dataset.einoAgent
                 });
             } else {
-                titleSpan.textContent = ap + '\uD83E\uDD14 ' + _t('chat.aiThinking');
+                titleSpan.textContent = ap + _t('chat.aiThinking');
             }
         } else if (type === 'reasoning_chain') {
-            titleSpan.textContent = ap + '\uD83D\uDD17 ' + _t('chat.reasoningChain');
+            titleSpan.textContent = ap + _t('chat.reasoningChain');
         } else if (type === 'planning') {
             if (item.dataset.orchestration && typeof einoMainStreamPlanningTitle === 'function') {
                 titleSpan.textContent = einoMainStreamPlanningTitle({
@@ -9603,11 +9603,11 @@ function refreshProgressAndTimelineI18n() {
                     einoAgent: item.dataset.einoAgent || ''
                 });
             } else {
-                titleSpan.textContent = ap + '\uD83D\uDCDD ' + _t('chat.planning');
+                titleSpan.textContent = ap + _t('chat.planning');
             }
         } else if (type === 'tool_calls_detected' && item.dataset.toolCallsCount != null) {
             const count = parseInt(item.dataset.toolCallsCount, 10) || 0;
-            titleSpan.textContent = ap + '\uD83D\uDD27 ' + _t('chat.toolCallsDetected', { count: count });
+            titleSpan.textContent = ap + _t('chat.toolCallsDetected', { count: count });
         } else if (type === 'tool_call' && (item.dataset.toolName !== undefined || item.dataset.toolIndex !== undefined)) {
             const name = (item.dataset.toolName != null && item.dataset.toolName !== '') ? item.dataset.toolName : _t('chat.unknownTool');
             const index = parseInt(item.dataset.toolIndex, 10) || 0;
@@ -9615,7 +9615,7 @@ function refreshProgressAndTimelineI18n() {
             const callTitle = typeof formatToolCallTimelineTitle === 'function'
                 ? formatToolCallTimelineTitle(name, index, total)
                 : _t('chat.callTool', { name: name, index: index, total: total });
-            titleSpan.textContent = ap + '\uD83D\uDD27 ' + callTitle;
+            titleSpan.textContent = ap + callTitle;
             if (item.dataset.toolDisplayStatus) {
                 applyToolCallStatus(item, item.dataset.toolDisplayStatus);
             }
@@ -9624,10 +9624,10 @@ function refreshProgressAndTimelineI18n() {
             const displayStatus = item.dataset.toolDisplayStatus || '';
             const backgroundRunning = displayStatus === 'background_running';
             const success = item.dataset.toolSuccess === '1';
-            const icon = displayStatus === 'blocked' ? '🛡 ' : (backgroundRunning ? '\u23F3 ' : (success ? '\u2705 ' : '\u274C '));
+            const icon = displayStatus === 'blocked' ? '' : (backgroundRunning ? '' : (success ? '' : ''));
             titleSpan.textContent = ap + icon + (displayStatus === 'blocked' ? _t('chat.toolExecBlocked', { name: name }) : backgroundRunning ? (getBackgroundRunningToolLabel() + ': ' + name) : (success ? _t('chat.toolExecComplete', { name: name }) : _t('chat.toolExecFailed', { name: name })));
         } else if (type === 'eino_agent_reply') {
-            titleSpan.textContent = ap + '\uD83D\uDCAC ' + _t('chat.einoAgentReplyTitle');
+            titleSpan.textContent = ap + _t('chat.einoAgentReplyTitle');
         } else if (type === 'eino_usage_summary') {
             const usageData = {
                 modelCalls: item.dataset.modelCalls,
@@ -9643,7 +9643,7 @@ function refreshProgressAndTimelineI18n() {
                 setTimelineItemContentStreamPlain(contentEl, formatEinoUsageSummaryMessage(usageData));
             }
         } else if (type === 'cancelled') {
-            titleSpan.textContent = '\u26D4 ' + _t('chat.taskCancelled');
+            titleSpan.textContent = _t('chat.taskCancelled');
         } else if (type === 'user_interrupt_continue') {
             titleSpan.textContent = _t('chat.userInterruptContinueTitle');
         } else if (type === 'progress' && item.dataset.progressMessage !== undefined) {

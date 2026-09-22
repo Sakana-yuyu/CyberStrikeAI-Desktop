@@ -19,7 +19,23 @@ func prepareShellCmdSession(cmd *exec.Cmd) error {
 		cmd.SysProcAttr = &syscall.SysProcAttr{}
 	}
 	cmd.SysProcAttr.CreationFlags = syscall.CREATE_NEW_PROCESS_GROUP
+	// 桌面端为 windowsgui 子系统进程，不给控制台子进程再弹出黑色控制台窗口
+	HideConsoleWindow(cmd)
 	return nil
+}
+
+// HideConsoleWindow 禁止子进程弹出控制台窗口（GUI 桌面进程派生 cmd/powershell/
+// taskkill/python 等控制台子进程时 Windows 会为其创建可见控制台）。
+// CREATE_NO_WINDOW 让子进程完全没有控制台；HideWindow 为已有控制台的场景兜底。
+func HideConsoleWindow(cmd *exec.Cmd) {
+	if cmd == nil {
+		return
+	}
+	if cmd.SysProcAttr == nil {
+		cmd.SysProcAttr = &syscall.SysProcAttr{}
+	}
+	cmd.SysProcAttr.CreationFlags |= 0x08000000 // CREATE_NO_WINDOW
+	cmd.SysProcAttr.HideWindow = true
 }
 
 // terminateProcessGroup 使用 taskkill /F /T 终止进程及其子进程；rootPID 为 0 时回退到 cmd.Process.Pid。
@@ -34,6 +50,7 @@ func terminateProcessGroup(rootPID int, cmd *exec.Cmd) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	tk := exec.CommandContext(ctx, "taskkill", "/F", "/T", "/PID", strconv.Itoa(pid))
+	HideConsoleWindow(tk)
 	if err := tk.Run(); err != nil {
 		if cmd != nil && cmd.Process != nil {
 			_ = cmd.Process.Kill()

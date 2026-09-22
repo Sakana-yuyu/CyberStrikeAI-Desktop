@@ -109,6 +109,12 @@ func New(cfg *config.Config, log *logger.Logger, configPath string) (*App, error
 
 	// 认证管理器（数据库初始化后挂载 RBAC）
 	authManager := security.NewAuthManager(cfg.Auth.SessionDurationHours)
+	if !cfg.Auth.IsEnabled() {
+		authManager.SetDisabled(true)
+		if log.Logger != nil {
+			log.Logger.Warn("登录鉴权已通过 auth.enabled=false 关闭，所有请求将以内置管理员身份放行；请勿在非可信网络中暴露该实例")
+		}
+	}
 	if generatedPassword, err := authManager.AttachRBACStore(db); err != nil {
 		return nil, fmt.Errorf("初始化RBAC失败: %w", err)
 	} else if generatedPassword != "" {
@@ -404,6 +410,8 @@ func New(cfg *config.Config, log *logger.Logger, configPath string) (*App, error
 	vulnerabilityHandler := handler.NewVulnerabilityHandler(db, log.Logger)
 	assetHandler := handler.NewAssetHandler(db, log.Logger)
 	projectHandler := handler.NewProjectHandler(db, log.Logger)
+	projectHandler.SetAudit(auditSvc)
+	projectHandler.SetConfig(cfg)
 	rbacHandler := handler.NewRBACHandler(db, log.Logger)
 	rbacHandler.SetAudit(auditSvc)
 	rbacHandler.SetAuthManager(authManager)
@@ -910,6 +918,10 @@ func setupRoutes(
 	loginRL := security.NewRateLimiter(10, 1*time.Minute)
 	{
 		authRoutes.POST("/login", security.RateLimitMiddleware(loginRL), authHandler.Login)
+		if app.config.DesktopMode {
+			// 桌面端一次性引导令牌换会话（自动登录），仅桌面进程内启动时注册
+			authRoutes.POST("/desktop-session", security.RateLimitMiddleware(loginRL), authHandler.DesktopSession)
+		}
 		authRoutes.POST("/logout", security.AuthMiddleware(authManager), authHandler.Logout)
 		authRoutes.POST("/change-password", security.AuthMiddleware(authManager), security.RequirePermission("auth:self"), authHandler.ChangePassword)
 		authRoutes.GET("/validate", security.AuthMiddleware(authManager), authHandler.Validate)
@@ -1072,7 +1084,8 @@ func setupRoutes(
 		protected.GET("/config/tools/:name/schema", configHandler.GetToolSchema)
 		protected.PUT("/config", configHandler.UpdateConfig)
 		protected.POST("/config/apply", configHandler.ApplyConfig)
-		protected.POST("/config/test-openai", configHandler.TestOpenAI)
+		protected.POST("/config/test-openai", security.RequirePermission("config:write"), configHandler.TestOpenAI)
+		protected.POST("/config/channel-balance", security.RequirePermission("config:write"), configHandler.ChannelBalance)
 		protected.POST("/config/test-vision", configHandler.TestVision)
 		protected.POST("/config/list-models", configHandler.ListModels)
 
@@ -1263,6 +1276,12 @@ func setupRoutes(
 		protected.GET("/projects/dashboard-summary", projectHandler.GetDashboardSummary)
 		protected.GET("/projects", projectHandler.ListProjects)
 		protected.POST("/projects", projectHandler.CreateProject)
+		protected.POST("/projects/import-folder", projectHandler.ImportProjectFolder)
+		protected.POST("/projects/link-folder", projectHandler.LinkProjectFolder)
+		if app.config.DesktopMode {
+			// 桌面端原生「选择文件夹」对话框；走 /projects 前缀以复用 project:write 权限映射
+			protected.POST("/projects/pick-folder", projectHandler.PickFolder)
+		}
 		protected.GET("/projects/:id/stats", projectHandler.GetProjectStats)
 		protected.GET("/projects/:id/conversations", projectHandler.ListProjectConversations)
 		protected.GET("/projects/:id", projectHandler.GetProject)
@@ -1413,14 +1432,23 @@ func setupRoutes(
 	router.Static("/static", "./web/static")
 	router.LoadHTMLGlob("web/templates/*")
 
-	// 前端页面
+	// 前端页面。桌面模式只向本机回环地址下发引导令牌，页面直接换会话，不显示登录框。
 	router.GET("/", func(c *gin.Context) {
 		version := app.config.Version
 		if version == "" {
 			version = "v1.0.0"
 		}
-		c.HTML(http.StatusOK, "index.html", gin.H{"Version": version})
+		data := gin.H{"Version": version}
+		if app.config.DesktopMode && requestFromLoopback(c) {
+			data["DesktopToken"] = app.config.DesktopBootstrapToken
+		}
+		c.HTML(http.StatusOK, "index.html", data)
 	})
+}
+
+func requestFromLoopback(c *gin.Context) bool {
+	ip := net.ParseIP(strings.TrimSpace(c.ClientIP()))
+	return ip != nil && ip.IsLoopback()
 }
 
 // registerWebshellTools 注册 WebShell 相关 MCP 工具，供 AI 助手在指定连接上执行命令与文件操作

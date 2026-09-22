@@ -5,6 +5,8 @@ let authUser = null;
 let authRoles = [];
 let authPermissions = new Set();
 let authScope = '';
+// 后端 auth.enabled=false 时为 true：前端不再弹登录层，直接持有匿名管理员会话
+let authDisabled = false;
 let authPromise = null;
 let authPromiseResolvers = [];
 let isAppInitialized = false;
@@ -25,6 +27,8 @@ function saveAuth(token, expiresAt, meta = {}) {
     authRoles = Array.isArray(meta.roles) ? meta.roles : [];
     authPermissions = new Set(Array.isArray(meta.permissions) ? meta.permissions : []);
     authScope = meta.scope || '';
+    authDisabled = !!meta.authDisabled;
+    document.documentElement.classList.toggle('auth-disabled', authDisabled);
     try {
         localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({
             token,
@@ -33,6 +37,7 @@ function saveAuth(token, expiresAt, meta = {}) {
             roles: authRoles,
             permissions: Array.from(authPermissions),
             scope: authScope,
+            authDisabled,
         }));
     } catch (error) {
         console.warn('无法持久化认证信息:', error);
@@ -47,6 +52,8 @@ function clearAuthStorage() {
     authRoles = [];
     authPermissions = new Set();
     authScope = '';
+    authDisabled = false;
+    document.documentElement.classList.remove('auth-disabled');
     applyRBACToUI();
     try {
         localStorage.removeItem(AUTH_STORAGE_KEY);
@@ -78,6 +85,8 @@ function loadAuthFromStorage() {
         authRoles = Array.isArray(stored.roles) ? stored.roles : [];
         authPermissions = new Set(Array.isArray(stored.permissions) ? stored.permissions : []);
         authScope = stored.scope || '';
+        authDisabled = !!stored.authDisabled;
+        document.documentElement.classList.toggle('auth-disabled', authDisabled);
         return isTokenValid();
     } catch (error) {
         console.error('读取认证信息失败:', error);
@@ -90,9 +99,17 @@ function resolveAuthPromises(success) {
     authPromiseResolvers.forEach(resolve => resolve(success));
     authPromiseResolvers = [];
     authPromise = null;
+    if (success) window.dispatchEvent(new Event('app-authenticated'));
 }
 
 function showLoginOverlay(message = '') {
+    if (authDisabled) {
+        return;
+    }
+    if (window.__csDesktopToken && !window.__csDesktopAuthFailed) {
+        return;
+    }
+    document.documentElement.classList.remove('desktop-auth');
     const overlay = document.getElementById('login-overlay');
     const errorBox = document.getElementById('login-error');
     const usernameInput = document.getElementById('login-username');
@@ -146,8 +163,66 @@ function ensureAuthPromise() {
     return authPromise;
 }
 
+// ===== 桌面端自动登录 =====
+// cmd/desktop 启动时生成一次性引导令牌，经窗口 URL 的 #dt=<token> fragment 传入
+// （fragment 不会出现在服务器访问日志里）。前端用它换取普通会话，免去登录页；
+// 令牌仅保存在内存中，会话过期（401）时静默换取新会话并重试请求。
+let desktopReconnectPromise = null;
+
+function extractDesktopBootstrapToken() {
+    const match = /^#dt=([A-Za-z0-9_-]+)/.exec(window.location.hash || '');
+    if (!match) return '';
+    // 立即从地址栏移除，避免令牌残留在窗口地址与历史里
+    try {
+        window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    } catch (e) { /* ignore */ }
+    return match[1];
+}
+
+async function exchangeDesktopToken(token) {
+    try {
+        const response = await fetch('/api/auth/desktop-session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ desktop_token: token }),
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || !result.token) {
+            window.__csDesktopAuthFailed = true;
+            return false;
+        }
+        saveAuth(result.token, result.expires_at, {
+            user: result.user,
+            roles: result.roles,
+            permissions: result.permissions,
+            scope: result.scope,
+            authDisabled: !!result.auth_disabled,
+        });
+        return true;
+    } catch (error) {
+        window.__csDesktopAuthFailed = true;
+        console.warn('桌面端自动登录失败', error);
+        return false;
+    }
+}
+
+// desktopAutoReconnect 用内存中的引导令牌换新会话；并发调用共享同一次请求
+async function desktopAutoReconnect() {
+    const token = window.__csDesktopToken;
+    if (!token) return false;
+    if (!desktopReconnectPromise) {
+        desktopReconnectPromise = exchangeDesktopToken(token).finally(() => {
+            desktopReconnectPromise = null;
+        });
+    }
+    return desktopReconnectPromise;
+}
+
 async function ensureAuthenticated() {
     if (isTokenValid()) {
+        return true;
+    }
+    if (window.__csDesktopToken && await desktopAutoReconnect()) {
         return true;
     }
     showLoginOverlay();
@@ -155,7 +230,32 @@ async function ensureAuthenticated() {
     return true;
 }
 
+// 后端关闭认证（auth.enabled: false）时，validate 无需令牌即可返回匿名管理员会话。
+async function probeNoAuthSession() {
+    try {
+        const response = await fetch('/api/auth/validate', { method: 'GET' });
+        if (!response.ok) return false;
+        const result = await response.json().catch(() => ({}));
+        if (!result.auth_disabled) return false;
+        saveAuth(result.token || '', result.expires_at || '', {
+            user: result.user || null,
+            roles: result.roles || [],
+            permissions: result.permissions || [],
+            scope: result.scope || '',
+            authDisabled: true,
+        });
+        return true;
+    } catch (error) {
+        return false;
+    }
+}
+
 function handleUnauthorized({ message = null, silent = false } = {}) {
+    if (authDisabled) {
+        // 鉴权关闭模式下不应出现 401；静默重新获取匿名会话而不弹登录层
+        probeNoAuthSession();
+        return;
+    }
     clearAuthStorage();
     authPromise = null;
     authPromiseResolvers = [];
@@ -184,7 +284,15 @@ async function apiFetch(url, options = {}) {
     }
     opts.headers = headers;
 
-    const response = await fetch(url, opts);
+    let response = await fetch(url, opts);
+    if (response.status === 401 && window.__csDesktopToken) {
+        // 桌面端：会话可能因服务重启失效，用引导令牌静默换新会话后重试一次
+        if (await desktopAutoReconnect()) {
+            headers.set('Authorization', `Bearer ${authToken}`);
+            opts.headers = headers;
+            response = await fetch(url, opts);
+        }
+    }
     if (response.status === 401) {
         handleUnauthorized();
         const msg = (typeof window !== 'undefined' && typeof window.t === 'function')
@@ -219,11 +327,19 @@ async function apiUploadWithProgress(url, formData, options = {}) {
         };
         xhr.onload = () => {
             if (xhr.status === 401) {
-                handleUnauthorized();
-                const msg = (typeof window !== 'undefined' && typeof window.t === 'function')
-                    ? window.t('auth.unauthorized')
-                    : '未授权访问';
-                reject(new Error(msg));
+                // 桌面端：先尝试静默换新会话；成功则不弹登录层，用户重试上传即可恢复
+                const reconnect = window.__csDesktopToken
+                    ? desktopAutoReconnect()
+                    : Promise.resolve(false);
+                reconnect.then((ok) => {
+                    if (!ok) {
+                        handleUnauthorized();
+                    }
+                    const msg = (typeof window !== 'undefined' && typeof window.t === 'function')
+                        ? window.t('auth.unauthorized')
+                        : '未授权访问';
+                    reject(new Error(msg));
+                });
                 return;
             }
             const responseText = xhr.responseText || '';
@@ -297,6 +413,7 @@ async function submitLogin(event) {
             roles: result.roles,
             permissions: result.permissions,
             scope: result.scope,
+            authDisabled: !!result.auth_disabled,
         });
         hideLoginOverlay();
         applyRBACToUI();
@@ -400,7 +517,7 @@ const PAGE_PERMISSION_MAP = {
     'agents-management': 'agents:read',
     roles: 'roles:read',
     'roles-management': 'roles:read',
-    'platform-rbac': 'rbac:read',
+    'api-keys': 'config:write',
     settings: 'config:read',
 };
 
@@ -561,40 +678,22 @@ function getAuthUsername() {
     return username ? `@${username}` : '-';
 }
 
-function getScopeLabel(scope) {
-    const normalized = String(scope || '').trim().toLowerCase();
-    const keyMap = {
-        all: 'header.scopeAll',
-        assigned: 'header.scopeAssigned',
-        own: 'header.scopeOwn',
-    };
-    const fallbackMap = {
-        all: '全部资源',
-        assigned: '指定资源',
-        own: '自己的资源',
-    };
-    const key = keyMap[normalized] || 'header.scopeUnknown';
-    const fallback = fallbackMap[normalized] || '资源范围未知';
-    return authT(key, fallback);
-}
-
 function renderUserMenuProfile() {
     const displayNameEl = document.getElementById('user-menu-display-name');
     const usernameEl = document.getElementById('user-menu-username');
-    const scopeEl = document.getElementById('user-menu-scope');
-    const rolesEl = document.getElementById('user-menu-roles');
-    const permissionsEl = document.getElementById('user-menu-permissions');
+    const localAdminEl = document.getElementById('user-menu-local-admin');
     const avatarBtn = document.getElementById('user-avatar-btn') || document.querySelector('.user-avatar-btn');
 
     const displayName = getAuthDisplayName();
-    const roleCount = Array.isArray(authRoles) ? authRoles.length : 0;
-    const permissionCount = authPermissions instanceof Set ? authPermissions.size : 0;
 
     if (displayNameEl) displayNameEl.textContent = displayName;
     if (usernameEl) usernameEl.textContent = getAuthUsername();
-    if (scopeEl) scopeEl.textContent = getScopeLabel(authScope);
-    if (rolesEl) rolesEl.textContent = authT('header.rolesCount', '{{count}} 个角色', { count: roleCount });
-    if (permissionsEl) permissionsEl.textContent = authT('header.permissionsCount', '{{count}} 项权限', { count: permissionCount });
+    if (localAdminEl) localAdminEl.textContent = authT('header.localAdmin', '本机管理员');
+    // Older templates may still have the RBAC stat pills; keep them hidden.
+    ['user-menu-scope', 'user-menu-roles', 'user-menu-permissions'].forEach(function (id) {
+        const el = document.getElementById(id);
+        if (el) el.hidden = true;
+    });
     if (avatarBtn && authUser) {
         avatarBtn.setAttribute('title', displayName);
         avatarBtn.setAttribute('aria-label', authT('header.userMenuFor', '用户菜单：{{name}}', { name: displayName }));
@@ -614,6 +713,13 @@ function setUserMenuOpen(open) {
     }
     if (open) {
         renderUserMenuProfile();
+        if (typeof window.placeAgentRailPopover === 'function' && avatarBtn) {
+            window.requestAnimationFrame(function () {
+                window.placeAgentRailPopover(dropdown, avatarBtn);
+            });
+        }
+    } else if (typeof window.clearAgentRailPopover === 'function') {
+        window.clearAgentRailPopover(dropdown);
     }
 }
 
@@ -680,6 +786,10 @@ function setupLoginUI() {
 
 async function initializeApp() {
     setupLoginUI();
+    const bootstrapToken = extractDesktopBootstrapToken();
+    if (bootstrapToken) {
+        window.__csDesktopToken = bootstrapToken;
+    }
     const hasStoredAuth = loadAuthFromStorage();
     if (hasStoredAuth && isTokenValid()) {
         try {
@@ -693,6 +803,7 @@ async function initializeApp() {
                     roles: result.roles || authRoles,
                     permissions: result.permissions || Array.from(authPermissions),
                     scope: result.scope || authScope,
+                    authDisabled: !!result.auth_disabled,
                 });
                 hideLoginOverlay();
                 applyRBACToUI();
@@ -703,6 +814,24 @@ async function initializeApp() {
         } catch (error) {
             console.warn('本地会话已失效，需重新登录');
         }
+    }
+
+    // 桌面端：用引导令牌换会话，跳过登录页直接进入应用
+    if (window.__csDesktopToken && await desktopAutoReconnect()) {
+        hideLoginOverlay();
+        applyRBACToUI();
+        resolveAuthPromises(true);
+        await bootstrapApp();
+        return;
+    }
+
+    // 部署端关闭认证（auth.enabled: false）时直接进入应用
+    if (await probeNoAuthSession()) {
+        hideLoginOverlay();
+        applyRBACToUI();
+        resolveAuthPromises(true);
+        await bootstrapApp();
+        return;
     }
 
     clearAuthStorage();
@@ -920,7 +1049,14 @@ async function deleteRobotAccountBinding(id) {
 async function logout() {
     // 关闭下拉菜单
     setUserMenuOpen(false);
-    
+
+    if (authDisabled) {
+        // 鉴权关闭模式下「退出登录」无意义：清理本地状态并刷新即可重新进入
+        clearAuthStorage();
+        location.reload();
+        return;
+    }
+
     try {
         // 先尝试调用退出API（如果token有效）
         if (authToken) {

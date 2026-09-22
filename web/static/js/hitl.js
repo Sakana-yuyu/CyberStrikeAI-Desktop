@@ -1273,7 +1273,7 @@ function syncHitlLogFilterSelect(selectId) {
         const check = document.createElement('span');
         check.className = 'hitl-filter-select-check';
         check.setAttribute('aria-hidden', 'true');
-        check.textContent = '✓';
+        check.innerHTML = (typeof window.csIcon === 'function') ? window.csIcon('check', { size: 11, strokeWidth: 3 }) : '';
         const label = document.createElement('span');
         label.className = 'hitl-filter-select-label';
         label.textContent = opt.textContent;

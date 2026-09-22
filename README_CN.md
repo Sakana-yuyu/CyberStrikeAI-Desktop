@@ -266,6 +266,28 @@ go build -o cyberstrike-ai cmd/server/main.go
 
 **说明：** Python 虚拟环境（`venv/`）由 `run.sh` 自动创建和管理。需要 Python 的工具（如 `api-fuzzer`、`http-framework-test` 等）会自动使用该环境。
 
+### 桌面端（Windows）
+
+除浏览器访问外，也可以把项目作为**原生桌面应用**运行：进程内启动完整服务（默认仅绑定 `127.0.0.1`），并使用系统 WebView2 打开独立窗口，Web 端功能（对话、SSE 流式、终端、文件上传下载等）完全一致。
+
+```bash
+# 构建 GUI 模式（无控制台窗口，双击即用）
+./build-desktop.sh
+
+# 构建控制台模式（保留终端输出，便于排查）
+./build-desktop.sh --console
+```
+
+生成的 `CyberStrikeAI-Desktop.exe` 需与项目资源目录（`web/`、`config.example.yaml`、`roles/`、`skills/` 等）放在同一目录运行。桌面端行为说明：
+
+- **首次启动**：自动从 `config.example.yaml` 生成 `config.yaml`，并通过弹窗展示仅显示一次的 `admin` 初始密码（无控制台也能拿到密码）
+- **网络**：默认仅本机回环访问（`127.0.0.1`，纯 HTTP）；需要局域网访问时加 `--listen 0.0.0.0`；端口被占用时自动改用可用端口
+- **单实例**：重复启动会直接在默认浏览器打开已运行的实例（两个进程同时写同一个 SQLite 会互相锁死）
+- **日志**：无控制台时服务日志写入 `logs/server.log`，访问日志与启动横幅写入 `logs/startup.log`
+- **依赖**：Windows 10/11 一般自带 WebView2 运行时；缺失时自动退化为系统默认浏览器打开
+- **杀毒软件**：本项目包含 C2/渗透测试相关代码，编译产物可能被杀毒软件误报隔离；自用机器建议将项目目录加入杀毒软件白名单
+- 常用参数：`-config` 指定配置文件、`-port` 覆盖端口、`--no-window` 仅启动服务不开窗口
+
 ### 版本升级与兼容性
 
 1. （首次使用）启用脚本：`chmod +x upgrade.sh`

@@ -24,19 +24,42 @@
         })();
     </script>
     <script>
+        // 桌面端引导令牌：必须在 router.js 之前截获，否则 initRouter 会把 hash 重写成 #dashboard。
+        // 令牌只存内存（window.__csDesktopToken），随后立即从地址栏移除。
         (function () {
+            try {
+                var embedded = "{{.DesktopToken}}";
+                if (embedded) window.__csDesktopToken = embedded;
+                var m = /^#dt=([A-Za-z0-9_-]+)/.exec(window.location.hash || '');
+                if (m) {
+                    window.__csDesktopToken = m[1];
+                    window.history.replaceState(null, '', window.location.pathname + window.location.search);
+                }
+                if (window.__csDesktopToken) {
+                    document.documentElement.classList.add('desktop-auth');
+                }
+            } catch (e) { /* ignore */ }
+        })();
+    </script>
+    <script>
+        (function () {
+            document.documentElement.classList.add('agent-shell');
             var initialPage = String(window.location.hash || '').replace(/^#/, '').split('?')[0];
-            if (initialPage && initialPage !== 'dashboard') {
+            if (initialPage && initialPage !== 'chat') {
                 document.documentElement.classList.add('initial-route-pending');
             }
         })();
     </script>
-    <link rel="stylesheet" href="/static/css/style.css?v=20260907-blocked-1">
+    <link rel="stylesheet" href="/static/css/style.css?v=20260923-profile-1">
+    <link rel="stylesheet" href="/static/css/agent-shell.css?v=20260923-adminonly-1">
     <link rel="stylesheet" href="/static/css/tool-guard.css?v=20260907-7">
     <link rel="stylesheet" href="/static/css/chat-plan-progress.css?v=20260813-4">
     <link rel="stylesheet" href="/static/css/c2.css">
+    <link rel="stylesheet" href="/static/css/api-keys.css?v=20260912-1">
+    <link rel="stylesheet" href="/static/css/ui-polish.css?v=20260923-ui-5">
     <link rel="stylesheet" href="/static/vendor/xterm.css">
-    <script src="/static/js/router.js?v=20260907-1"></script>
+    <script src="/static/js/icons.js?v=20260923-ui-3"></script>
+    <script src="/static/js/router.js?v=20260923-adminonly-1"></script>
 </head>
 <body>
     <div id="login-overlay" class="login-overlay" style="display: none;">
@@ -93,88 +116,6 @@
                                             </svg>
                                             <span data-i18n="header.github">GitHub</span>
                                         </button>
-                        <button id="theme-toggle-btn" class="theme-toggle-btn" type="button" onclick="window.cycleThemePreference && window.cycleThemePreference()" data-i18n="theme.toggle" data-i18n-attr="title" title="切换主题" aria-label="切换主题">
-                            <svg class="theme-toggle-icon theme-toggle-icon--system" width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
-                                <rect x="3" y="4" width="18" height="13" rx="2" stroke="currentColor" stroke-width="2"/>
-                                <path d="M8 21h8M12 17v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                            </svg>
-                            <svg class="theme-toggle-icon theme-toggle-icon--light" width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
-                                <circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="2"/>
-                                <path d="M12 2v2M12 20v2M4 12H2M22 12h-2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                            </svg>
-                            <svg class="theme-toggle-icon theme-toggle-icon--dark" width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M21 14.5A8.5 8.5 0 0 1 9.5 3a7 7 0 1 0 11.5 11.5z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
-                            </svg>
-                            <span id="theme-toggle-label">跟随系统</span>
-                        </button>
-                        <div class="lang-switcher">
-                            <button class="btn-secondary lang-switcher-btn" onclick="toggleLangDropdown()" data-i18n="header.language" data-i18n-attr="title" data-i18n-skip-text="true" title="界面语言">
-                                <span class="lang-switcher-icon">🌐</span>
-                                <span id="current-lang-label">中文</span>
-                            </button>
-                            <div id="lang-dropdown" class="lang-dropdown" style="display: none;">
-                                <div class="lang-option" data-lang="zh-CN" onclick="onLanguageSelect('zh-CN')">中文</div>
-                                <div class="lang-option" data-lang="en-US" onclick="onLanguageSelect('en-US')">English</div>
-                            </div>
-                        </div>
-                        <div class="notification-menu-container">
-                            <button class="notification-btn" id="notification-bell-btn" onclick="toggleNotificationDropdown()" data-i18n="notifications.title" data-i18n-attr="title" data-i18n-skip-text="true" title="事件通知">
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                    <path d="M13.73 21a2 2 0 0 1-3.46 0" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                </svg>
-                                <span class="notification-badge" id="notification-badge" style="display: none;">0</span>
-                            </button>
-                            <div id="notification-dropdown" class="notification-dropdown" style="display: none;">
-                                <div class="notification-dropdown-header">
-                                    <span id="notification-dropdown-title" data-i18n="notifications.title">事件通知</span>
-                                    <button class="notification-mark-read-btn" id="notification-mark-all-read-btn" type="button" data-require-permission="notification:write" onclick="markAllNotificationsSeen()" data-i18n="notifications.markAllRead">标记已读</button>
-                                </div>
-                                <div id="notification-list" class="notification-list">
-                                    <div class="notification-empty" data-i18n="notifications.empty">暂无新事件</div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="user-menu-container">
-                            <button id="user-avatar-btn" class="user-avatar-btn" onclick="toggleUserMenu()" data-i18n="header.userMenu" data-i18n-attr="title" data-i18n-skip-text="true" title="用户菜单" aria-haspopup="menu" aria-expanded="false" aria-controls="user-menu-dropdown">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                    <circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                </svg>
-                            </button>
-                            <div id="user-menu-dropdown" class="user-menu-dropdown" role="menu" style="display: none;">
-                                <div class="user-menu-profile" role="presentation">
-                                    <div class="user-menu-profile-row">
-                                        <div class="user-menu-profile-main">
-                                            <div id="user-menu-current-label" class="user-menu-profile-label" data-i18n="header.currentUser">当前用户</div>
-                                            <div id="user-menu-display-name" class="user-menu-profile-name">-</div>
-                                            <div id="user-menu-username" class="user-menu-profile-username">-</div>
-                                        </div>
-                                    </div>
-                                    <div class="user-menu-profile-meta" aria-labelledby="user-menu-current-label">
-                                        <span id="user-menu-scope" class="user-menu-profile-pill">-</span>
-                                        <span id="user-menu-roles" class="user-menu-profile-pill">-</span>
-                                        <span id="user-menu-permissions" class="user-menu-profile-pill">-</span>
-                                    </div>
-                                </div>
-                                <div class="user-menu-divider" role="separator"></div>
-                                <div class="user-menu-item" role="menuitem" tabindex="0" onclick="openRobotAccountBinding()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openRobotAccountBinding();}">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                                        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                                    </svg>
-                                    <span>绑定机器人账号</span>
-                                </div>
-                                <div class="user-menu-item" role="menuitem" tabindex="0" onclick="logout()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();logout();}">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                        <polyline points="16 17 21 12 16 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                        <line x1="21" y1="12" x2="9" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                    </svg>
-                                    <span data-i18n="header.logout">退出登录</span>
-                                </div>
-                            </div>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -201,6 +142,12 @@
                                 <rect x="3" y="16" width="7" height="5"></rect>
                             </svg>
                             <span data-i18n="nav.dashboard">仪表盘</span>
+                        </div>
+                    </div>
+                    <div class="nav-item" data-page="api-keys" data-require-permission="config:write">
+                        <div class="nav-item-content" data-title="API Key" onclick="switchPage('api-keys')" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();switchPage('api-keys');}">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="5" stroke="currentColor" stroke-width="2"/><path d="m12 12 9 9m-4-4 3-3m-6 0 3-3" stroke="currentColor" stroke-width="2"/></svg>
+                            <span>API Key</span>
                         </div>
                     </div>
                     <div class="nav-item" data-page="chat">
@@ -426,21 +373,6 @@
                     <div class="nav-section-label" role="presentation">
                         <span data-i18n="navGroups.administration">平台管理</span>
                     </div>
-                    <div class="nav-item" data-page="platform-rbac">
-                        <div class="nav-item-content" data-title="平台权限" onclick="switchPage('platform-rbac')" data-i18n="nav.platformRbac" data-i18n-attr="data-title" data-i18n-skip-text="true">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <circle cx="7.5" cy="14.5" r="3.5"></circle>
-                                <path d="M10.3 12.3 21 1.6"></path>
-                                <path d="m15 7 2 2"></path>
-                                <path d="m18 4 2 2"></path>
-                                <path d="M4 4h4"></path>
-                                <path d="M6 2v4"></path>
-                                <path d="M18 18h4"></path>
-                                <path d="M20 16v4"></path>
-                            </svg>
-                            <span data-i18n="nav.platformRbac">平台权限</span>
-                        </div>
-                    </div>
                     <div class="nav-item" data-page="settings">
                         <div class="nav-item-content" data-title="系统设置" onclick="switchPage('settings')" data-i18n="nav.settings" data-i18n-attr="data-title" data-i18n-skip-text="true">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -453,10 +385,72 @@
                 </nav>
             </aside>
 
+            <aside id="agent-workspace-nav" class="agent-workspace-nav" aria-label="设置与工作台">
+                <button type="button" class="agent-workspace-back" onclick="switchPage('chat')">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    <span data-i18n="agentShell.backToChat">返回对话</span>
+                </button>
+                <nav class="agent-workspace-groups">
+                    <section class="agent-workspace-group">
+                        <h3 data-i18n="agentShell.groupModel">模型</h3>
+                        <button type="button" class="agent-workspace-link" data-agent-link data-page="settings" data-settings-section="basic" onclick="openAgentDestination('settings','basic')" data-i18n="agentShell.modelChannels">模型通道</button>
+                        <button type="button" class="agent-workspace-link" data-agent-link data-page="api-keys" onclick="openAgentDestination('api-keys')">API Key</button>
+                    </section>
+                    <section class="agent-workspace-group">
+                        <h3 data-i18n="agentShell.groupChat">对话</h3>
+                        <button type="button" class="agent-workspace-link" data-agent-link data-page="settings" data-settings-section="hitl" onclick="openAgentDestination('settings','hitl')" data-i18n="settings.nav.hitl">人机协同</button>
+                        <button type="button" class="agent-workspace-link" data-agent-link data-page="hitl" onclick="openAgentDestination('hitl')" data-i18n="agentShell.pendingApprovals">待审批</button>
+                        <button type="button" class="agent-workspace-link" data-agent-link data-page="tool-guard" onclick="openAgentDestination('tool-guard')" data-i18n="nav.toolGuard">调用拦截</button>
+                    </section>
+                    <section class="agent-workspace-group">
+                        <h3 data-i18n="agentShell.groupCapabilities">能力</h3>
+                        <button type="button" class="agent-workspace-link" data-agent-link data-page="mcp-management" onclick="openAgentDestination('mcp-management')" data-i18n="nav.mcpManagement">MCP管理</button>
+                        <button type="button" class="agent-workspace-link" data-agent-link data-page="mcp-monitor" onclick="openAgentDestination('mcp-monitor')" data-i18n="nav.mcpMonitor">MCP状态监控</button>
+                        <button type="button" class="agent-workspace-link" data-agent-link data-page="knowledge-management" onclick="openAgentDestination('knowledge-management')" data-i18n="nav.knowledgeManagement">知识管理</button>
+                        <button type="button" class="agent-workspace-link" data-agent-link data-page="knowledge-retrieval-logs" onclick="openAgentDestination('knowledge-retrieval-logs')" data-i18n="nav.knowledgeRetrievalLogs">检索历史</button>
+                        <button type="button" class="agent-workspace-link" data-agent-link data-page="skills-management" onclick="openAgentDestination('skills-management')" data-i18n="nav.skillsManagement">技能管理</button>
+                        <button type="button" class="agent-workspace-link" data-agent-link data-page="skills-monitor" onclick="openAgentDestination('skills-monitor')" data-i18n="nav.skillsMonitor">技能状态</button>
+                        <button type="button" class="agent-workspace-link" data-agent-link data-page="agents-management" onclick="openAgentDestination('agents-management')" data-i18n="nav.agentsManagement">智能体管理</button>
+                        <button type="button" class="agent-workspace-link" data-agent-link data-page="roles-management" onclick="openAgentDestination('roles-management')" data-i18n="nav.rolesManagement">角色管理</button>
+                    </section>
+                    <section class="agent-workspace-group">
+                        <h3 data-i18n="agentShell.groupWorkbench">工作台</h3>
+                        <button type="button" class="agent-workspace-link" data-agent-link data-page="projects" onclick="openAgentDestination('projects')" data-i18n="nav.projects">项目管理</button>
+                        <button type="button" class="agent-workspace-link" data-agent-link data-page="asset-library" onclick="openAgentDestination('asset-library')" data-i18n="nav.assetLibrary">资产库</button>
+                        <button type="button" class="agent-workspace-link" data-agent-link data-page="info-collect" onclick="openAgentDestination('info-collect')" data-i18n="nav.infoCollect">信息收集</button>
+                        <button type="button" class="agent-workspace-link" data-agent-link data-page="vulnerabilities" onclick="openAgentDestination('vulnerabilities')" data-i18n="nav.vulnerabilities">漏洞管理</button>
+                        <button type="button" class="agent-workspace-link" data-agent-link data-page="tasks" onclick="openAgentDestination('tasks')" data-i18n="nav.tasks">任务管理</button>
+                        <button type="button" class="agent-workspace-link" data-agent-link data-page="workflows" onclick="openAgentDestination('workflows')" data-i18n="nav.workflows">工作流</button>
+                        <button type="button" class="agent-workspace-link" data-agent-link data-page="webshell" onclick="openAgentDestination('webshell')" data-i18n="nav.webshell">WebShell管理</button>
+                        <button type="button" class="agent-workspace-link" data-agent-link data-page="chat-files" onclick="openAgentDestination('chat-files')" data-i18n="nav.chatFiles">文件管理</button>
+                        <details class="agent-workspace-subgroup" data-agent-c2 data-agent-c2-group>
+                            <summary class="agent-workspace-subgroup-toggle">
+                                <span data-i18n="nav.c2">C2</span>
+                                <svg class="agent-workspace-subgroup-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                            </summary>
+                            <div class="agent-workspace-subgroup-links">
+                                <button type="button" class="agent-workspace-link" data-agent-link data-agent-c2 data-page="c2-listeners" onclick="openAgentDestination('c2-listeners')" data-i18n="nav.c2Listeners">监听器</button>
+                                <button type="button" class="agent-workspace-link" data-agent-link data-agent-c2 data-page="c2-sessions" onclick="openAgentDestination('c2-sessions')" data-i18n="nav.c2Sessions">会话</button>
+                                <button type="button" class="agent-workspace-link" data-agent-link data-agent-c2 data-page="c2-tasks" onclick="openAgentDestination('c2-tasks')" data-i18n="nav.c2Tasks">任务</button>
+                                <button type="button" class="agent-workspace-link" data-agent-link data-agent-c2 data-page="c2-payloads" onclick="openAgentDestination('c2-payloads')" data-i18n="nav.c2Payloads">载荷</button>
+                                <button type="button" class="agent-workspace-link" data-agent-link data-agent-c2 data-page="c2-events" onclick="openAgentDestination('c2-events')" data-i18n="nav.c2Events">事件</button>
+                                <button type="button" class="agent-workspace-link" data-agent-link data-agent-c2 data-page="c2-profiles" onclick="openAgentDestination('c2-profiles')" data-i18n="nav.c2Profiles">流量伪装</button>
+                            </div>
+                        </details>
+                    </section>
+                    <section class="agent-workspace-group">
+                        <h3 data-i18n="agentShell.groupSystem">系统</h3>
+                        <button type="button" class="agent-workspace-link" data-agent-link data-page="settings" data-settings-section="audit" onclick="openAgentDestination('settings','audit')" data-i18n="settings.nav.audit">日志审计</button>
+                        <button type="button" class="agent-workspace-link" data-agent-link data-page="settings" data-settings-section="robots" onclick="openAgentDestination('settings','robots')" data-i18n="settings.nav.robots">机器人设置</button>
+                        <button type="button" class="agent-workspace-link" data-agent-link data-page="settings" data-settings-section="c2" data-agent-c2 onclick="openAgentDestination('settings','c2')" data-i18n="settings.nav.c2">C2</button>
+                    </section>
+                </nav>
+            </aside>
+
             <!-- 内容区域 -->
             <div class="content-area">
                 <!-- 仪表盘页面 -->
-                <div id="page-dashboard" class="page active">
+                <div id="page-dashboard" class="page">
                     <div class="dashboard-page">
                         <div class="page-header">
                             <h2 data-i18n="dashboard.title">仪表盘</h2>
@@ -909,15 +903,36 @@
                 </div>
 
                 <!-- 对话页面 -->
-                <div id="page-chat" class="page">
+                <div id="page-chat" class="page active">
                     <div class="chat-page-layout">
                         <!-- 历史对话侧边栏（可折叠，与主导航侧边栏类似） -->
                         <aside class="conversation-sidebar" id="conversation-sidebar">
                             <!-- 头部一行：折叠与「新任务」并排；任务底层复用会话数据 -->
                             <div class="sidebar-header conversation-sidebar-header">
-                                <button type="button" class="new-chat-btn" data-require-permission="chat:write" onclick="startNewConversation()">
-                                    <span>+</span> <span data-i18n="chat.newTask">新任务</span>
-                                </button>
+                                <div class="cm-stage" id="new-task-menu" data-open="false">
+                                    <div class="cm-blobs" aria-hidden="true"><div class="cm-body"></div></div>
+                                    <button type="button" class="cm-pill" data-require-permission="chat:write" aria-expanded="false" aria-haspopup="menu" aria-controls="new-task-list">
+                                        <span class="cm-glyph" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M12 5v14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>
+                                        <span class="cm-say"><span data-i18n="chat.newTask">新任务</span></span>
+                                    </button>
+                                    <div class="cm-panel">
+                                        <div class="cm-hov" aria-hidden="true"><span class="cm-hov-pill"></span></div>
+                                        <ul class="cm-menu" id="new-task-list" role="menu">
+                                            <li class="cm-item" role="none">
+                                                <button type="button" role="menuitem" data-action="conversation">
+                                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                                    <span data-i18n="chat.newChat">新对话</span>
+                                                </button>
+                                            </li>
+                                            <li class="cm-item" role="none">
+                                                <button type="button" role="menuitem" data-action="project" data-require-permission="project:write">
+                                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+                                                    <span data-i18n="projects.newProject">新建项目</span>
+                                                </button>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </div>
                                 <button type="button" class="conversation-sidebar-collapse-btn" onclick="toggleConversationSidebar()" data-i18n="chat.toggleConversationPanel" data-i18n-attr="title" data-i18n-skip-text="true" title="折叠/展开对话列表" aria-label="折叠/展开对话列表">
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                                         <path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -962,15 +977,15 @@
                                 </div>
                                 
                                 <!-- 最近对话 -->
-                                <div class="recent-conversations-section is-collapsed" id="recent-conversations-section">
-                                    <button type="button" class="section-header recent-conversations-toggle" id="recent-conversations-toggle" onclick="toggleRecentConversations()" aria-expanded="false" aria-controls="recent-conversations-body" data-i18n="chat.toggleRecentConversations" data-i18n-attr="title,aria-label" data-i18n-skip-text="true" title="展开/折叠最近对话" aria-label="展开/折叠最近对话">
+                                <div class="recent-conversations-section" id="recent-conversations-section">
+                                    <button type="button" class="section-header recent-conversations-toggle" id="recent-conversations-toggle" onclick="toggleRecentConversations()" aria-expanded="true" aria-controls="recent-conversations-body" data-i18n="chat.toggleRecentConversations" data-i18n-attr="title,aria-label" data-i18n-skip-text="true" title="展开/折叠最近对话" aria-label="展开/折叠最近对话">
                                         <span class="section-title" data-i18n="chat.recentConversations">最近对话</span>
                                         <span class="recent-conversations-toggle-meta">
                                             <span id="recent-conversations-count" class="recent-conversations-count">0</span>
                                             <svg class="recent-conversations-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
                                         </span>
                                     </button>
-                                    <div id="recent-conversations-body" class="recent-conversations-body" hidden>
+                                    <div id="recent-conversations-body" class="recent-conversations-body">
                                         <div class="section-header-actions recent-conversations-actions">
                                             <div class="conversation-sort-dropdown" id="conversation-sort-dropdown">
                                                 <button type="button" class="conversation-sort-btn" id="conversation-sort-btn" onclick="toggleConversationSortMenu(event)" aria-haspopup="menu" aria-expanded="false" aria-controls="conversation-sort-menu" data-i18n="chat.sortConversations" data-i18n-attr="title" data-i18n-skip-text="true" title="排序">
@@ -989,7 +1004,7 @@
                                                             </svg>
                                                         </span>
                                                         <span class="conversation-sort-option-label" data-i18n="chat.sortByCreatedAt">创建时间</span>
-                                                        <span class="conversation-sort-option-check" aria-hidden="true">✓</span>
+                                                        <span class="conversation-sort-option-check" aria-hidden="true"><svg class="cs-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></span>
                                                     </button>
                                                     <button type="button" class="conversation-sort-option" role="menuitemradio" data-sort="updated_at" onclick="setConversationSortBy('updated_at')">
                                                         <span class="conversation-sort-option-icon" aria-hidden="true">
@@ -999,7 +1014,7 @@
                                                             </svg>
                                                         </span>
                                                         <span class="conversation-sort-option-label" data-i18n="chat.sortByUpdatedAt">更新时间</span>
-                                                        <span class="conversation-sort-option-check" aria-hidden="true">✓</span>
+                                                        <span class="conversation-sort-option-check" aria-hidden="true"><svg class="cs-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></span>
                                                     </button>
                                                 </div>
                                             </div>
@@ -1087,10 +1102,111 @@
 	                                    </div>
 	                                </div>
 	                            </div>
+                            <div id="agent-rail-footer" class="agent-rail-footer">
+                                <div class="agent-rail-capsule-wrap" id="agent-rail-capsule-wrap">
+                                    <button type="button" id="agent-rail-capsule" class="agent-rail-capsule" aria-expanded="false" aria-haspopup="menu" aria-controls="agent-rail-menu" data-i18n="agentShell.menu" data-i18n-attr="title,aria-label" title="菜单" aria-label="菜单">
+                                        <svg class="agent-rail-capsule-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5" cy="5" r="1.5"/><circle cx="12" cy="5" r="1.5"/><circle cx="19" cy="5" r="1.5"/><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/><circle cx="5" cy="19" r="1.5"/><circle cx="12" cy="19" r="1.5"/><circle cx="19" cy="19" r="1.5"/></svg>
+                                        <span class="agent-rail-capsule-label" data-i18n="agentShell.menu">菜单</span>
+                                        <svg class="agent-rail-capsule-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+                                    </button>
+                                    <div id="agent-rail-menu" class="agent-rail-menu" role="menu" hidden>
+                                        <button type="button" class="agent-rail-menu-item" role="menuitem" tabindex="-1" data-agent-embed="dashboard" data-agent-rail-action="dashboard" data-i18n="nav.dashboard">仪表盘</button>
+                                        <button type="button" class="agent-rail-menu-item" role="menuitem" tabindex="-1" data-agent-embed="asset-overview" data-agent-rail-action="asset-overview" data-require-permission="asset:read" data-i18n="nav.assetOverview">资产概览</button>
+                                        <button type="button" class="agent-rail-menu-item" role="menuitem" tabindex="-1" data-agent-rail-action="terminal" data-require-permission="terminal:execute" data-i18n="agentShell.terminal" aria-pressed="false">终端</button>
+                                        <button type="button" class="agent-rail-menu-item" role="menuitem" tabindex="-1" data-agent-rail-action="settings" data-i18n="nav.settings">系统设置</button>
+                                        <div class="agent-rail-menu-sep" role="separator"></div>
+                                        <button type="button" id="theme-toggle-btn" class="theme-toggle-btn agent-rail-menu-item" role="menuitem" tabindex="-1" data-agent-rail-action="theme" data-i18n="theme.toggle" data-i18n-attr="title" title="切换主题" aria-label="切换主题">
+                                            <svg class="theme-toggle-icon theme-toggle-icon--system" width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+                                                <rect x="3" y="4" width="18" height="13" rx="2" stroke="currentColor" stroke-width="2"/>
+                                                <path d="M8 21h8M12 17v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                            </svg>
+                                            <svg class="theme-toggle-icon theme-toggle-icon--light" width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+                                                <circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="2"/>
+                                                <path d="M12 2v2M12 20v2M4 12H2M22 12h-2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                            </svg>
+                                            <svg class="theme-toggle-icon theme-toggle-icon--dark" width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M21 14.5A8.5 8.5 0 0 1 9.5 3a7 7 0 1 0 11.5 11.5z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                                            </svg>
+                                            <span id="theme-toggle-label">跟随系统</span>
+                                        </button>
+                                        <div class="agent-rail-menu-group" role="group" aria-label="语言">
+                                            <div class="agent-rail-menu-group-label">
+                                                <svg class="cs-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                                                <span data-i18n="header.language">界面语言</span>
+                                                <span id="current-lang-label" class="agent-rail-menu-meta">中文</span>
+                                            </div>
+                                            <button type="button" class="agent-rail-menu-item agent-rail-menu-item--sub" role="menuitem" tabindex="-1" data-agent-rail-action="lang" data-lang="zh-CN">中文</button>
+                                            <button type="button" class="agent-rail-menu-item agent-rail-menu-item--sub" role="menuitem" tabindex="-1" data-agent-rail-action="lang" data-lang="en-US">English</button>
+                                        </div>
+                                        <!-- Keep lang-dropdown id for any legacy callers; options live in the menu above -->
+                                        <div id="lang-dropdown" class="lang-dropdown" hidden aria-hidden="true" style="display: none;"></div>
+                                    </div>
+                                </div>
+                                <div class="agent-rail-actions" id="agent-rail-actions">
+                                    <div class="notification-menu-container agent-rail-action">
+                                        <button type="button" class="notification-btn agent-rail-icon-btn" id="notification-bell-btn" data-i18n="notifications.title" data-i18n-attr="title,aria-label" title="事件通知" aria-label="事件通知" aria-haspopup="dialog" aria-expanded="false" aria-controls="notification-dropdown">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                                <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                                <path d="M13.73 21a2 2 0 0 1-3.46 0" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                            </svg>
+                                            <span class="notification-badge" id="notification-badge" style="display: none;">0</span>
+                                        </button>
+                                        <div id="notification-dropdown" class="notification-dropdown agent-rail-popover" style="display: none;">
+                                            <div class="notification-dropdown-header">
+                                                <span id="notification-dropdown-title" data-i18n="notifications.title">事件通知</span>
+                                                <button class="notification-mark-read-btn" id="notification-mark-all-read-btn" type="button" data-require-permission="notification:write" onclick="markAllNotificationsSeen()" data-i18n="notifications.markAllRead">标记已读</button>
+                                            </div>
+                                            <div id="notification-list" class="notification-list">
+                                                <div class="notification-empty" data-i18n="notifications.empty">暂无新事件</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="user-menu-container agent-rail-action">
+                                        <button type="button" id="user-avatar-btn" class="user-avatar-btn agent-rail-icon-btn" data-i18n="header.userMenu" data-i18n-attr="title,aria-label" title="用户菜单" aria-label="用户菜单" aria-haspopup="menu" aria-expanded="false" aria-controls="user-menu-dropdown">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                                <circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                            </svg>
+                                        </button>
+                                        <div id="user-menu-dropdown" class="user-menu-dropdown agent-rail-popover" role="menu" style="display: none;">
+                                            <div class="user-menu-profile" role="presentation">
+                                                <div class="user-menu-profile-row">
+                                                    <div class="user-menu-profile-main">
+                                                        <div id="user-menu-current-label" class="user-menu-profile-label" data-i18n="header.currentUser">当前用户</div>
+                                                        <div id="user-menu-display-name" class="user-menu-profile-name">-</div>
+                                                        <div id="user-menu-username" class="user-menu-profile-username">-</div>
+                                                        <div id="user-menu-local-admin" class="user-menu-profile-note" data-i18n="header.localAdmin">本机管理员</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="user-menu-divider" role="separator"></div>
+                                            <div class="user-menu-item" role="menuitem" tabindex="0" onclick="openRobotAccountBinding();" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openRobotAccountBinding();}">
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                                </svg>
+                                                <span>绑定机器人账号</span>
+                                            </div>
+                                            <div class="user-menu-item user-menu-item--logout" role="menuitem" tabindex="0" onclick="logout();" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();logout();}">
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                                    <polyline points="16 17 21 12 16 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                                    <line x1="21" y1="12" x2="9" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                                </svg>
+                                                <span data-i18n="header.logout">退出登录</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
 	                        </aside>
                         
                         <!-- 对话界面 -->
                         <div class="chat-container">
+                            <div id="agent-chat-embed" class="agent-chat-embed" hidden></div>
+                            <div class="agent-chat-topbar">
+                                <h2 id="agent-chat-title" class="agent-chat-title" data-i18n="agentShell.newConversation">新对话</h2>
+                            </div>
                             <!-- 会话顶部栏（只在有会话选中时显示） -->
                             <div id="conversation-header" class="conversation-header" style="display: none;">
                                 <div class="conversation-header-content">
@@ -1104,6 +1220,13 @@
                             </div>
                             <div id="active-tasks-bar" class="active-tasks-bar"></div>
                             <div id="chat-messages" class="chat-messages"></div>
+                            <div id="chat-restore-skeleton" class="chat-restore-skeleton" aria-hidden="true">
+                                <div class="chat-restore-msg chat-restore-msg--user"><span class="cs-skeleton"></span></div>
+                                <div class="chat-restore-msg chat-restore-msg--agent"><span class="cs-skeleton"></span></div>
+                                <div class="chat-restore-msg chat-restore-msg--agent chat-restore-msg--wide"><span class="cs-skeleton"></span></div>
+                                <div class="chat-restore-msg chat-restore-msg--user"><span class="cs-skeleton"></span></div>
+                                <div class="chat-restore-msg chat-restore-msg--agent"><span class="cs-skeleton"></span></div>
+                            </div>
                             <nav id="chat-turn-rail" class="chat-turn-rail" aria-label="对话轮次导航" hidden>
                                 <div id="chat-turn-rail-markers" class="chat-turn-rail-markers"></div>
                             </nav>
@@ -1153,7 +1276,7 @@
                                             <div class="chat-project-panel-footer">
                                                 <button type="button" class="role-selection-item-main chat-project-panel-create-btn" data-require-permission="project:write" onclick="showNewProjectModalFromChat()">
                                                     <span class="chat-project-panel-create-icon" aria-hidden="true">+</span>
-                                                    <span class="chat-project-panel-create-label" data-i18n="projects.newProject">新建项目</span>
+                                                    <span class="chat-project-panel-create-label" data-i18n="projects.importLocalProject">导入本地项目</span>
                                                 </button>
                                             </div>
                                         </div>
@@ -1161,7 +1284,7 @@
                                 </div>
                                 <div id="role-selector-wrapper" class="role-selector-wrapper">
                                     <button type="button" id="role-selector-btn" class="role-selector-btn" onclick="toggleRoleSelectionPanel()" data-i18n="chat.selectRole" data-i18n-attr="title" title="选择角色">
-                                        <span id="role-selector-icon" class="role-selector-icon">🔵</span>
+                                        <span id="role-selector-icon" class="role-selector-icon"><svg class="cs-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></span>
                                         <span id="role-selector-text" class="role-selector-text" data-i18n="chat.defaultRole">默认</span>
                                         <svg class="role-selector-arrow" width="10" height="10" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                                             <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -1205,7 +1328,7 @@
                                                         <div class="role-selection-item-name-main" data-i18n="chat.agentModeEinoSingle">Eino 单代理（ADK）</div>
                                                         <div class="role-selection-item-description-main" data-i18n="chat.agentModeEinoSingleHint">CloudWeGo Eino ChatModelAgent + Runner，MCP 工具（/api/eino-agent）</div>
                                                     </div>
-                                                    <div class="role-selection-checkmark-main agent-mode-check" data-agent-mode-check="eino_single">✓</div>
+                                                    <div class="role-selection-checkmark-main agent-mode-check" data-agent-mode-check="eino_single"><svg class="cs-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></div>
                                                 </button>
                                                 <button type="button" class="role-selection-item-main agent-mode-option" data-value="deep" role="option" onclick="selectAgentMode('deep')" data-agent-mode-detail="Eino DeepAgent，适合复杂安全测试、多阶段 task 子代理委派与汇总" data-i18n="chat.agentModeDeepHint" data-i18n-attr="data-agent-mode-detail" data-i18n-skip-text="true">
                                                     <div class="role-selection-item-icon-main agent-mode-logo agent-mode-logo--deep" aria-hidden="true"><svg class="agent-mode-logo__svg" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><path d="M8 16h.01"/><path d="M16 16h.01"/></svg></div>
@@ -1213,7 +1336,7 @@
                                                         <div class="role-selection-item-name-main" data-i18n="chat.agentModeDeep">Deep（DeepAgent）</div>
                                                         <div class="role-selection-item-description-main" data-i18n="chat.agentModeDeepHint">Eino DeepAgent，适合复杂安全测试、多阶段 task 子代理委派与汇总</div>
                                                     </div>
-                                                    <div class="role-selection-checkmark-main agent-mode-check" data-agent-mode-check="deep">✓</div>
+                                                    <div class="role-selection-checkmark-main agent-mode-check" data-agent-mode-check="deep"><svg class="cs-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></div>
                                                 </button>
                                                 <button type="button" class="role-selection-item-main agent-mode-option" data-value="plan_execute" role="option" onclick="selectAgentMode('plan_execute')" data-agent-mode-detail="规划 → 执行 → 重规划（单执行器工具链）" data-i18n="chat.agentModePlanExecuteHint" data-i18n-attr="data-agent-mode-detail" data-i18n-skip-text="true">
                                                     <div class="role-selection-item-icon-main agent-mode-logo agent-mode-logo--plan" aria-hidden="true"><svg class="agent-mode-logo__svg" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><path d="M8 16h.01"/><path d="M16 16h.01"/></svg></div>
@@ -1221,7 +1344,7 @@
                                                         <div class="role-selection-item-name-main" data-i18n="chat.agentModePlanExecuteLabel">Plan-Execute</div>
                                                         <div class="role-selection-item-description-main" data-i18n="chat.agentModePlanExecuteHint">规划 → 执行 → 重规划（单执行器工具链）</div>
                                                     </div>
-                                                    <div class="role-selection-checkmark-main agent-mode-check" data-agent-mode-check="plan_execute">✓</div>
+                                                    <div class="role-selection-checkmark-main agent-mode-check" data-agent-mode-check="plan_execute"><svg class="cs-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></div>
                                                 </button>
                                                 <button type="button" class="role-selection-item-main agent-mode-option" data-value="supervisor" role="option" onclick="selectAgentMode('supervisor')" data-agent-mode-detail="专家路由场景：监督者通过 transfer 动态分派多个专业子代理" data-i18n="chat.agentModeSupervisorHint" data-i18n-attr="data-agent-mode-detail" data-i18n-skip-text="true">
                                                     <div class="role-selection-item-icon-main agent-mode-logo agent-mode-logo--supervisor" aria-hidden="true"><svg class="agent-mode-logo__svg" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><path d="M8 16h.01"/><path d="M16 16h.01"/></svg></div>
@@ -1229,7 +1352,7 @@
                                                         <div class="role-selection-item-name-main" data-i18n="chat.agentModeSupervisorLabel">Supervisor（专家路由）</div>
                                                         <div class="role-selection-item-description-main" data-i18n="chat.agentModeSupervisorHint">专家路由场景：监督者通过 transfer 动态分派多个专业子代理</div>
                                                     </div>
-                                                    <div class="role-selection-checkmark-main agent-mode-check" data-agent-mode-check="supervisor">✓</div>
+                                                    <div class="role-selection-checkmark-main agent-mode-check" data-agent-mode-check="supervisor"><svg class="cs-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></div>
                                                 </button>
                                             </div>
                                         </div>
@@ -1354,6 +1477,20 @@
                                 </div>
                             </div>
                         </div>
+                        <aside id="agent-terminal-drawer" class="agent-terminal-drawer" hidden>
+                            <div class="terminal-wrapper">
+                                <div class="terminal-tabs">
+                                    <div class="terminal-tab active" data-tab-id="1"><span class="terminal-tab-label" onclick="switchTerminalTab(1)">终端 1</span><button type="button" class="terminal-tab-close" onclick="removeTerminalTab(1); event.stopPropagation();" data-i18n="settingsTerminal.close" data-i18n-attr="title" title="关闭" hidden>×</button></div>
+                                    <button type="button" class="terminal-tab-new" onclick="addTerminalTab()" data-i18n="settingsTerminal.newTerminal" data-i18n-attr="title" title="新终端">+</button>
+                                    <button type="button" class="terminal-drawer-close terminal-drawer-close--bar" onclick="closeAgentTerminal(); event.stopPropagation();" data-i18n="agentShell.closeTerminal" data-i18n-attr="title,aria-label" data-i18n-skip-text="true" title="关闭终端" aria-label="关闭终端">×</button>
+                                </div>
+                                <div class="terminal-panes">
+                                    <div id="terminal-pane-1" class="terminal-pane active">
+                                        <div id="terminal-container-1" class="terminal-container"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </aside>
                     </div>
                 </div>
 
@@ -1713,7 +1850,7 @@
                                     </div>
                                     <div class="search-box">
                                         <input type="text" id="tools-search" data-i18n="mcp.toolSearchPlaceholder" data-i18n-attr="placeholder" placeholder="搜索工具..." onkeypress="handleSearchKeyPress(event)" oninput="if(this.value.trim() === '') clearSearch()" />
-                                        <button class="btn-search" onclick="searchTools()" data-i18n="common.search" data-i18n-attr="title" title="搜索">🔍</button>
+                                        <button class="btn-search" onclick="searchTools()" data-i18n="common.search" data-i18n-attr="title" title="搜索"><svg class="cs-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></button>
                                     </div>
                                     <div class="tools-stats" id="tools-stats"></div>
                                 </div>
@@ -1787,7 +1924,7 @@
                                     <span data-i18n="common.search">搜索</span>
                                     <div class="search-box">
                                         <input type="text" id="knowledge-search" data-i18n="knowledgePage.searchPlaceholder" data-i18n-attr="placeholder" placeholder="搜索知识..." oninput="handleKnowledgeSearchInput()" onkeydown="if(event.key==='Enter') searchKnowledgeItems()" />
-                                        <button class="btn-search" onclick="searchKnowledgeItems()" data-i18n="common.search" data-i18n-attr="title" title="搜索">🔍</button>
+                                        <button class="btn-search" onclick="searchKnowledgeItems()" data-i18n="common.search" data-i18n-attr="title" title="搜索"><svg class="cs-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></button>
                                     </div>
                                 </label>
                             </div>
@@ -2029,7 +2166,7 @@
                                 <div class="asset-import-step-heading"><span>2</span><div><strong data-i18n="assets.uploadFile">上传文件</strong><small data-i18n="assets.uploadFileHint">支持 .xlsx 和 .csv，最多 100000 行、100 MB</small></div></div>
                                 <input id="asset-import-file" type="file" accept=".xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden onchange="handleAssetImportFile(this.files && this.files[0])">
                                 <button id="asset-import-dropzone" class="asset-import-dropzone" type="button" onclick="document.getElementById('asset-import-file').click()">
-                                    <span class="asset-import-dropzone-icon" aria-hidden="true">⇧</span>
+                                    <span class="asset-import-dropzone-icon" aria-hidden="true"><svg class="cs-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></span>
                                     <strong id="asset-import-dropzone-title" data-i18n="assets.chooseOrDropFile">选择文件，或拖拽到此处</strong>
                                     <small id="asset-import-file-name" data-i18n="assets.fileNotSelected">尚未选择文件</small>
                                 </button>
@@ -2300,7 +2437,8 @@
                         <div class="page-header-actions">
                             <label class="projects-show-archived-label"><input type="checkbox" id="projects-show-archived" onchange="loadProjectsList()"> <span data-i18n="projects.showArchived">显示已归档</span></label>
                             <button class="btn-secondary" type="button" onclick="loadProjectsList()" data-i18n="common.refresh">刷新</button>
-                            <button class="btn-primary" type="button" data-require-permission="project:write" onclick="showNewProjectModal()" data-i18n="projects.newProjectCta">+ 新建项目</button>
+                            <button class="btn-secondary" type="button" data-require-permission="project:write" onclick="showEmptyProjectModal()" data-i18n="projects.createEmptyProject">创建空项目</button>
+                            <button class="btn-primary" type="button" data-require-permission="project:write" onclick="showNewProjectModal()" data-i18n="projects.newProjectCta">+ 导入本地项目</button>
                         </div>
                     </div>
                     <div class="page-content projects-page-layout">
@@ -2324,9 +2462,9 @@
                                         <path d="M8 14h8M8 17h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
                                     </svg>
                                 </div>
-                                <h3 data-i18n="projects.selectOrCreateTitle">选择或创建项目</h3>
-                                <p data-i18n="projects.selectOrCreateHint">项目用于跨对话共享「事实黑板」：目标、环境、认证等信息会在绑定项目的对话中自动注入。</p>
-                                <button class="btn-primary" type="button" data-require-permission="project:write" onclick="showNewProjectModal()" data-i18n="projects.createFirstProject">创建第一个项目</button>
+                                <h3 data-i18n="projects.selectOrCreateTitle">选择或导入项目</h3>
+                                <p data-i18n="projects.selectOrCreateHint">项目用于跨对话共享「事实黑板」：目标、环境、认证等信息会在绑定项目的对话中自动注入。可先导入本地文件夹，或创建空项目后再关联。</p>
+                                <button class="btn-primary" type="button" data-require-permission="project:write" onclick="showNewProjectModal()" data-i18n="projects.createFirstProject">导入第一个项目</button>
                             </div>
                             <div class="projects-detail-inner" id="projects-detail-inner" hidden>
                                 <header class="projects-detail-header">
@@ -2351,6 +2489,7 @@
                                             <span id="projects-detail-meta-time" class="projects-detail-meta-time"></span>
                                         </span>
                                         <button type="button" class="btn-secondary btn-small" onclick="openVulnerabilitiesForProject()" data-i18n="projects.vulnerabilityManagement">漏洞管理</button>
+                                        <button type="button" class="btn-secondary btn-small" data-require-permission="project:write" onclick="showImportFolderModalForCurrentProject()" data-i18n="projects.importFolderHere">关联文件夹</button>
                                         <button type="button" class="btn-primary btn-small" data-require-permission="project:write" onclick="showAddFactModal()" data-i18n="projects.addFactCta">+ 添加事实</button>
                                     </div>
                                 </header>
@@ -3563,6 +3702,35 @@
                 </div>
 
                 <!-- 系统设置页面 -->
+                <div id="page-api-keys" class="page">
+                    <div class="page-header"><h2>API Key</h2><p>集中管理 AI 通道密钥。与设置共用配置，不创建独立密钥库。</p></div>
+                    <div class="api-keys-toolbar">
+                        <button class="btn-primary" id="api-keys-add" type="button">添加 API Key</button>
+                        <button class="btn-secondary" id="api-keys-refresh" type="button">刷新</button>
+                        <button class="btn-secondary" id="api-keys-test" type="button">测试所选</button>
+                        <button class="btn-secondary" id="api-keys-balance" type="button">查询所选余额</button>
+                        <span id="api-keys-count"></span>
+                    </div>
+                    <p class="form-hint">仅手动测试和查询；连接测试可能产生费用。余额依服务商支持情况显示，不支持不等于零余额。</p>
+                    <p id="api-keys-message" role="status" aria-live="polite"></p>
+                    <div class="api-keys-table-wrap"><table class="api-keys-table">
+                        <thead><tr><th><input id="api-keys-all" type="checkbox" aria-label="选择全部密钥"></th><th>名称 / 服务商</th><th>API Key</th><th>模型</th><th>Base URL</th><th>状态</th><th>余额</th><th>操作</th></tr></thead>
+                        <tbody id="api-keys-rows"></tbody>
+                    </table></div>
+                    <dialog id="api-keys-dialog" class="api-keys-dialog" aria-labelledby="api-keys-editor-title">
+                        <form id="api-keys-form">
+                            <h3 id="api-keys-editor-title">添加 API Key</h3>
+                            <div class="form-group"><label for="api-keys-name">名称</label><input id="api-keys-name" required maxlength="120"></div>
+                            <div class="form-group"><label for="api-keys-vendor">服务商快捷填充</label><select id="api-keys-vendor"><option value="">自定义 / 保留当前</option><option value="openai">OpenAI</option><option value="claude">Anthropic</option><option value="deepseek">DeepSeek</option><option value="siliconflow">SiliconFlow CN</option><option value="moonshot">Moonshot CN</option><option value="openrouter">OpenRouter</option></select></div>
+                            <div class="form-group"><label for="api-keys-provider">接口协议</label><select id="api-keys-provider"><option value="openai_compatible">OpenAI 兼容</option><option value="claude">Claude</option></select></div>
+                            <div class="form-group"><label for="api-keys-url">Base URL</label><input id="api-keys-url" type="url" required placeholder="https://api.openai.com/v1"></div>
+                            <div class="form-group"><label for="api-keys-secret">API Key</label><input id="api-keys-secret" type="password" autocomplete="off" spellcheck="false"><small class="form-hint">编辑时留空保留原密钥；更换服务商或地址必须输入新密钥。</small></div>
+                            <div class="form-group"><label for="api-keys-model">模型</label><input id="api-keys-model" required placeholder="模型 ID"></div>
+                            <p id="api-keys-form-message" role="alert"></p>
+                            <div class="api-keys-toolbar"><button type="submit" class="btn-primary">保存并应用</button><button type="button" class="btn-secondary" id="api-keys-cancel">取消</button></div>
+                        </form>
+                    </dialog>
+                </div>
                 <div id="page-settings" class="page">
                     <div class="page-header">
                         <h2 data-i18n="settings.title">系统设置</h2>
@@ -3571,32 +3739,49 @@
                         <!-- 左侧导航栏 -->
                         <aside class="settings-sidebar">
                             <nav class="settings-nav">
-                                <div class="settings-nav-item active" data-section="basic" onclick="switchSettingsSection('basic')">
-                                    <span data-i18n="settings.nav.basic">基本设置</span>
+                                <div class="settings-nav-group">
+                                    <div class="settings-nav-group-label" data-i18n="settings.navGroups.general">通用</div>
+                                    <div class="settings-nav-item active" data-section="basic" onclick="switchSettingsSection('basic')">
+                                        <svg class="cs-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.6.84 1 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                                        <span data-i18n="settings.nav.basic">基本设置</span>
+                                    </div>
+                                    <div class="settings-nav-item" data-section="audit" onclick="switchSettingsSection('audit')">
+                                        <svg class="cs-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                                        <span data-i18n="settings.nav.audit">日志审计</span>
+                                    </div>
                                 </div>
-                                <div class="settings-nav-item" data-section="hitl" onclick="switchSettingsSection('hitl')">
-                                    <span data-i18n="settings.nav.hitl">人机协同</span>
+                                <div class="settings-nav-group">
+                                    <div class="settings-nav-group-label" data-i18n="settings.navGroups.collaboration">对话协同</div>
+                                    <div class="settings-nav-item" data-section="hitl" onclick="switchSettingsSection('hitl')">
+                                        <svg class="cs-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                                        <span data-i18n="settings.nav.hitl">人机协同</span>
+                                    </div>
+                                    <div class="settings-nav-item" data-section="terminal" onclick="switchSettingsSection('terminal')">
+                                        <svg class="cs-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3M12 15h5"/></svg>
+                                        <span data-i18n="settings.nav.terminal">终端</span>
+                                    </div>
                                 </div>
-                                <div class="settings-nav-item" data-section="infocollect" onclick="switchSettingsSection('infocollect')">
-                                    <span data-i18n="settings.nav.infocollect">资产管理</span>
+                                <div class="settings-nav-group">
+                                    <div class="settings-nav-group-label" data-i18n="settings.navGroups.resources">资源</div>
+                                    <div class="settings-nav-item" data-section="infocollect" onclick="switchSettingsSection('infocollect')">
+                                        <svg class="cs-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 2 8 4-8 4-8-4 8-4Z"/><path d="m4 10 8 4 8-4"/><path d="m4 14 8 4 8-4"/></svg>
+                                        <span data-i18n="settings.nav.infocollect">资产管理</span>
+                                    </div>
+                                    <div class="settings-nav-item" data-section="knowledge" onclick="switchSettingsSection('knowledge')">
+                                        <svg class="cs-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                                        <span data-i18n="settings.nav.knowledge">知识库</span>
+                                    </div>
                                 </div>
-                                <div class="settings-nav-item" data-section="knowledge" onclick="switchSettingsSection('knowledge')">
-                                    <span data-i18n="settings.nav.knowledge">知识库</span>
-                                </div>
-                                <div class="settings-nav-item" data-section="c2" onclick="switchSettingsSection('c2')">
-                                    <span data-i18n="settings.nav.c2">C2</span>
-                                </div>
-                                <div class="settings-nav-item" data-section="robots" onclick="switchSettingsSection('robots')">
-                                    <span data-i18n="settings.nav.robots">机器人设置</span>
-                                </div>
-                                <div class="settings-nav-item" data-section="terminal" onclick="switchSettingsSection('terminal')">
-                                    <span data-i18n="settings.nav.terminal">终端</span>
-                                </div>
-                                <div class="settings-nav-item" data-section="security" onclick="switchSettingsSection('security')">
-                                    <span data-i18n="settings.nav.security">安全设置</span>
-                                </div>
-                                <div class="settings-nav-item" data-section="audit" onclick="switchSettingsSection('audit')">
-                                    <span data-i18n="settings.nav.audit">日志审计</span>
+                                <div class="settings-nav-group">
+                                    <div class="settings-nav-group-label" data-i18n="settings.navGroups.integrations">集成</div>
+                                    <div class="settings-nav-item" data-section="robots" onclick="switchSettingsSection('robots')">
+                                        <svg class="cs-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="8" width="16" height="12" rx="2"/><circle cx="12" cy="4" r="1.5"/><path d="M12 5.5V8"/><path d="M8.5 14h.01"/><path d="M15.5 14h.01"/><path d="M9 17.5h6"/></svg>
+                                        <span data-i18n="settings.nav.robots">机器人设置</span>
+                                    </div>
+                                    <div class="settings-nav-item" data-section="c2" onclick="switchSettingsSection('c2')">
+                                        <svg class="cs-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 13a10 10 0 0 1 14 0"/><path d="M8.5 16.5a5 5 0 0 1 7 0"/><path d="M2 9.5a15 15 0 0 1 20 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
+                                        <span data-i18n="settings.nav.c2">C2</span>
+                                    </div>
                                 </div>
                             </nav>
                         </aside>
@@ -3654,6 +3839,8 @@
                                                             <div class="ai-channel-section-actions">
                                                                 <button type="button" id="test-openai-btn" class="btn-secondary" onclick="testOpenAIConnection()" data-i18n="settingsBasic.testConnection">测试连接</button>
                                                                 <span id="test-openai-result" class="form-inline-result connection-test-result"></span>
+                                                                <button type="button" id="ai-channel-balance-btn" class="btn-secondary" onclick="queryAIChannelBalance()">查询余额 / Balance</button>
+                                                                <span id="ai-channel-balance-result" class="form-inline-result" role="status" aria-live="polite"></span>
                                                             </div>
                                                         </div>
                                                         <div class="ai-channel-form-grid">
@@ -3670,11 +3857,22 @@
                                                             </div>
                                                             <div class="form-group span-2">
                                                                 <label for="openai-base-url">Base URL <span class="required-mark">*</span></label>
+                                                                <label for="ai-vendor-preset">服务商快捷填充 / Vendor preset</label>
+                                                                <select id="ai-vendor-preset" onchange="applyAIChannelVendorPreset(this.value)">
+                                                                    <option value="">自定义 / Keep current</option>
+                                                                    <option value="openai">OpenAI</option>
+                                                                    <option value="claude">Anthropic</option>
+                                                                    <option value="deepseek">DeepSeek</option>
+                                                                    <option value="siliconflow">SiliconFlow CN</option>
+                                                                    <option value="moonshot">Moonshot CN</option>
+                                                                    <option value="openrouter">OpenRouter</option>
+                                                                </select>
+                                                                <small class="form-hint">切换服务商会清空密钥；测试可能产生费用。余额仅手动查询，部分服务商不支持。 / Switching clears the key. Tests may incur charges; balances are manual and may be unavailable.</small>
                                                                 <input type="text" id="openai-base-url" data-i18n="settingsBasic.openaiBaseUrlPlaceholder" data-i18n-attr="placeholder" placeholder="https://api.openai.com/v1" required />
                                                             </div>
                                                             <div class="form-group span-2">
                                                                 <label for="openai-api-key">API Key <span class="required-mark">*</span></label>
-                                                                <input type="password" id="openai-api-key" data-i18n="settingsBasic.openaiApiKeyPlaceholder" data-i18n-attr="placeholder" placeholder="输入OpenAI API Key" required />
+                                                                <input type="password" autocomplete="off" spellcheck="false" id="openai-api-key" data-i18n="settingsBasic.openaiApiKeyPlaceholder" data-i18n-attr="placeholder" placeholder="输入OpenAI API Key" required />
                                                             </div>
                                                             <div class="form-group span-2">
                                                                 <label for="openai-model"><span data-i18n="settingsBasic.model">模型</span> <span class="required-mark">*</span></label>
@@ -4910,23 +5108,13 @@
                                 </div>
                             </div>
 
-                            <!-- 终端 -->
+                            <!-- 终端：实体在对话右侧抽屉，这里只负责打开 -->
                             <div id="settings-section-terminal" class="settings-section-content">
                                 <div class="settings-section-header">
                                     <h3 data-i18n="settingsTerminal.title">终端</h3>
-                                    <p class="settings-description" data-i18n="settingsTerminal.description">在服务器上执行命令，便于运维与调试。命令在服务端执行，请勿执行敏感或破坏性操作。</p>
+                                    <p class="settings-description" data-i18n="agentShell.terminalHint">终端固定在对话界面右侧，命令在本机服务端的 Shell 中执行。</p>
                                 </div>
-                                <div class="terminal-wrapper">
-                                    <div class="terminal-tabs">
-                                        <div class="terminal-tab active" data-tab-id="1"><span class="terminal-tab-label" onclick="switchTerminalTab(1)">终端 1</span><button type="button" class="terminal-tab-close" onclick="removeTerminalTab(1); event.stopPropagation();" data-i18n="settingsTerminal.close" data-i18n-attr="title" title="关闭">×</button></div>
-                                        <button type="button" class="terminal-tab-new" onclick="addTerminalTab()" data-i18n="settingsTerminal.newTerminal" data-i18n-attr="title" title="新终端">+</button>
-                                    </div>
-                                    <div class="terminal-panes">
-                                        <div id="terminal-pane-1" class="terminal-pane active">
-                                            <div id="terminal-container-1" class="terminal-container"></div>
-                                        </div>
-                                    </div>
-                                </div>
+                                <button type="button" class="btn-primary" data-require-permission="terminal:execute" onclick="openAgentTerminal()" data-i18n="agentShell.openTerminal">打开终端</button>
                             </div>
 
                             <!-- 日志审计 -->
@@ -5037,281 +5225,10 @@
                                 <div id="audit-logs-pagination" class="pagination-container audit-logs-pagination"></div>
                             </div>
 
-                            <!-- 安全设置 -->
-                            <div id="settings-section-security" class="settings-section-content">
-                                <div class="settings-section-header">
-                                    <h3 data-i18n="settings.nav.security">安全设置</h3>
-                                </div>
-                                
-                                <div class="settings-subsection">
-                                    <h4 data-i18n="settingsSecurity.changePasswordTitle">修改密码</h4>
-                                    <p class="settings-description" data-i18n="settingsSecurity.changePasswordDesc">修改登录密码后，需要使用新密码重新登录。</p>
-                                    <div class="settings-form">
-                                        <div class="form-group">
-                                            <label for="auth-current-password" data-i18n="settingsSecurity.currentPassword">当前密码</label>
-                                            <input type="password" id="auth-current-password" data-i18n="settingsSecurity.currentPasswordPlaceholder" data-i18n-attr="placeholder" placeholder="输入当前登录密码" autocomplete="current-password" />
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="auth-new-password" data-i18n="settingsSecurity.newPassword">新密码</label>
-                                            <input type="password" id="auth-new-password" data-i18n="settingsSecurity.newPasswordPlaceholder" data-i18n-attr="placeholder" placeholder="设置新密码（至少 8 位）" autocomplete="new-password" />
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="auth-confirm-password" data-i18n="settingsSecurity.confirmPassword">确认新密码</label>
-                                            <input type="password" id="auth-confirm-password" data-i18n="settingsSecurity.confirmPasswordPlaceholder" data-i18n-attr="placeholder" placeholder="再次输入新密码" autocomplete="new-password" />
-                                        </div>
-                                        <div class="form-actions">
-                                            <button class="btn-secondary" type="button" onclick="resetPasswordForm()" data-i18n="settingsSecurity.clear">清空</button>
-                                            <button class="btn-primary change-password-submit" type="button" data-require-permission="auth:self" onclick="changePassword()" data-i18n="settingsSecurity.changePasswordBtn">修改密码</button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
                         </div>
                     </div>
                 </div>
 
-                <!-- 平台权限页面 -->
-                <div id="page-platform-rbac" class="page platform-rbac-page">
-                                <div class="page-header">
-                                    <div>
-                                        <h2 data-i18n="rbac.title">平台权限</h2>
-                                    </div>
-                                    <div class="page-header-actions">
-                                        <button class="btn-secondary" type="button" onclick="refreshPlatformRbac(this)" data-i18n="common.refresh">刷新</button>
-                                        <button class="btn-secondary" type="button" onclick="openRbacRoleModal()" data-i18n="rbac.createRole">新建角色</button>
-                                        <button class="btn-primary" type="button" onclick="openRbacUserModal()" data-i18n="rbac.createUser">添加成员</button>
-                                    </div>
-                                </div>
-                                <div class="page-content">
-                                    <div class="rbac-topbar">
-                                        <div class="rbac-overview" id="rbac-overview">
-                                            <div class="rbac-metric rbac-metric-users">
-                                                <strong id="rbac-metric-users">0</strong>
-                                                <span data-i18n="rbac.metricUsersPill">个账号</span>
-                                            </div>
-                                            <div class="rbac-metric rbac-metric-enabled">
-                                                <strong id="rbac-metric-enabled">0</strong>
-                                                <span data-i18n="rbac.metricEnabledPill">个启用账号</span>
-                                            </div>
-                                            <div class="rbac-metric rbac-metric-roles">
-                                                <strong id="rbac-metric-roles">0</strong>
-                                                <span data-i18n="rbac.metricRolesPill">个角色</span>
-                                            </div>
-                                            <div class="rbac-metric rbac-metric-assignments">
-                                                <strong id="rbac-metric-assignments">0</strong>
-                                                <span data-i18n="rbac.metricAssignmentsPill">项授权</span>
-                                            </div>
-                                        </div>
-                                        <div id="rbac-metric-context" class="rbac-metric-context" hidden></div>
-                                        <div class="rbac-workspace-nav" role="tablist" aria-label="权限管理视图">
-                                            <button type="button" class="rbac-workspace-tab is-active" role="tab" aria-selected="true" data-rbac-view="users" onclick="switchRbacView('users')">
-                                                <span data-i18n="rbac.memberManagement">成员管理</span>
-                                                <small data-i18n="rbac.memberManagementHint">为成员分配角色与数据范围</small>
-                                            </button>
-                                            <button type="button" class="rbac-workspace-tab" role="tab" aria-selected="false" data-rbac-view="roles" onclick="switchRbacView('roles')">
-                                                <span data-i18n="rbac.roleManagement">角色管理</span>
-                                                <small data-i18n="rbac.roleManagementHint">定义权限集合与默认可见范围</small>
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <div id="rbac-view-users" class="rbac-workspace-view rbac-layout">
-                                        <section class="rbac-panel rbac-panel-users">
-                                            <div class="rbac-panel-head">
-                                                <div>
-                                                    <h3 data-i18n="rbac.users">用户</h3>
-                                                    <p class="rbac-muted" data-i18n="rbac.usersHint">按账号选择后管理角色与资源范围。</p>
-                                                </div>
-                                                <span id="rbac-users-count" class="rbac-count">0</span>
-                                            </div>
-                                            <div class="rbac-search">
-                                                <input id="rbac-user-search" class="form-input" type="search" placeholder="搜索用户名或显示名称" data-i18n="rbac.searchUsers" data-i18n-attr="placeholder" oninput="setRbacUserSearch(this.value)">
-                                            </div>
-                                            <div id="rbac-users-list" class="rbac-list">
-                                                <div class="loading-spinner" data-i18n="knowledgePage.loading">加载中...</div>
-                                            </div>
-                                        </section>
-                                        <section class="rbac-panel rbac-panel-detail">
-                                            <div class="rbac-detail-head">
-                                                <div>
-                                                    <h3 id="rbac-selected-title" data-i18n="rbac.selectUser">选择用户</h3>
-                                                    <p id="rbac-selected-subtitle" class="rbac-muted" data-i18n="rbac.selectUserHint">选择一个平台用户后编辑角色、状态与资源授权。</p>
-                                                </div>
-                                                <div class="rbac-detail-actions">
-                                                    <button class="btn-secondary btn-small btn-delete" data-require-permission="rbac:write" type="button" id="rbac-delete-user-btn" onclick="deleteSelectedRbacUser()" disabled data-i18n="common.delete">删除</button>
-                                                    <button class="btn-primary btn-small" type="button" id="rbac-edit-user-btn" onclick="openRbacUserModalForSelected()" disabled data-i18n="common.edit">编辑</button>
-                                                </div>
-                                            </div>
-                                            <div id="rbac-selected-summary" class="rbac-selected-summary"></div>
-                                            <div id="rbac-no-role-notice" class="rbac-no-role-notice" hidden></div>
-                                            <div class="rbac-tabs" role="tablist">
-                                                <button type="button" class="rbac-tab is-active" data-rbac-tab="roles" onclick="switchRbacTab('roles')" data-i18n="rbac.tabRoles">角色权限</button>
-                                                <button type="button" class="rbac-tab" data-rbac-tab="assignments" onclick="switchRbacTab('assignments')" data-i18n="rbac.tabAssignments">资源授权</button>
-                                                <button type="button" class="rbac-tab" data-rbac-tab="audit" onclick="switchRbacTab('audit')" data-i18n="rbac.tabAudit">变更记录</button>
-                                            </div>
-                                            <div id="rbac-tab-roles" class="rbac-tab-panel">
-                                                <div class="rbac-section-toolbar">
-                                                    <div>
-                                                        <strong data-i18n="rbac.roleMembership">角色成员关系</strong>
-                                                        <p class="rbac-muted" data-i18n="rbac.roleMembershipHint">角色决定能做什么，资源范围决定能看到哪些数据。</p>
-                                                    </div>
-                                                    <div class="rbac-role-save-actions">
-                                                        <span id="rbac-role-unsaved" class="rbac-unsaved-indicator" hidden data-i18n="rbac.unsavedChanges">有未保存的变更</span>
-                                                        <button id="rbac-role-reset-btn" class="btn-secondary btn-small" type="button" onclick="resetSelectedUserRoles()" disabled data-i18n="common.cancel">取消</button>
-                                                        <button id="rbac-role-apply-btn" class="btn-primary btn-small" data-require-permission="rbac:write" type="button" onclick="saveSelectedUserRoles()" disabled data-i18n="rbac.saveRoleChanges">保存角色变更</button>
-                                                    </div>
-                                                </div>
-                                                <div id="rbac-roles-list" class="rbac-role-grid"></div>
-                                            </div>
-                                            <div id="rbac-tab-assignments" class="rbac-tab-panel" hidden>
-                                                <p class="rbac-assignment-help" data-i18n="rbac.assignmentHelp">仅“指定资源”范围的角色需要单独授权。项目授权会覆盖该项目下的对话和漏洞。</p>
-                                                <div id="rbac-pending-bar" class="rbac-pending-bar" hidden>
-                                                    <div class="rbac-pending-bar-head">
-                                                        <strong id="rbac-pending-title" data-i18n="rbac.pendingGrants">待授权</strong>
-                                                        <span id="rbac-pending-count" class="rbac-pill is-info">0</span>
-                                                    </div>
-                                                    <div id="rbac-pending-list" class="rbac-pending-list"></div>
-                                                    <div class="rbac-pending-bar-actions">
-                                                        <button type="button" class="btn-secondary btn-small" onclick="clearRbacResourceSelection()" data-i18n="rbac.clearSelection">清空选择</button>
-                                                        <button type="button" class="btn-primary btn-small" data-require-permission="rbac:write" onclick="createRbacAssignment()" data-i18n="rbac.confirmGrant">确认授权</button>
-                                                    </div>
-                                                </div>
-                                                <div class="rbac-assignment-columns">
-                                                    <section class="rbac-resource-section">
-                                                        <div class="rbac-resource-section-head">
-                                                            <div>
-                                                                <strong data-i18n="rbac.availableResources">可授权资源</strong>
-                                                                <span data-i18n="rbac.availableResourcesHint">勾选当前页资源，可跨页累计选择</span>
-                                                            </div>
-                                                        </div>
-                                                        <div class="rbac-assignment-filterbar rbac-resource-filterbar">
-                                                            <select id="rbac-assignment-type" class="form-select rbac-form-select" onchange="changeRbacResourceType()">
-                                                                <option value="conversation" data-i18n="rbac.resourceTypes.conversation">对话</option>
-                                                                <option value="project" data-i18n="rbac.resourceTypes.project">项目</option>
-                                                                <option value="batch_task" data-i18n="rbac.resourceTypes.batch_task">批量任务</option>
-                                                                <option value="vulnerability" data-i18n="rbac.resourceTypes.vulnerability">漏洞</option>
-                                                                <option value="asset" data-i18n="rbac.resourceTypes.asset">资产</option>
-                                                                <option value="webshell" data-i18n="rbac.resourceTypes.webshell">WebShell 连接</option>
-                                                                <option value="c2_listener" data-i18n="rbac.resourceTypes.c2_listener">C2 监听器</option>
-                                                            </select>
-                                                            <input id="rbac-resource-search" class="form-input" type="search" placeholder="按名称或 ID 搜索可授权资源" data-i18n="rbac.searchResourcePlaceholder" data-i18n-attr="placeholder" oninput="queueRbacResourceSearch(this.value)">
-                                                            <input id="rbac-assignment-id" class="form-input" type="text" placeholder="多个 ID 用逗号分隔" data-i18n="rbac.resourceIdPlaceholder" data-i18n-attr="placeholder" oninput="syncRbacAssignmentSubmit()">
-                                                        </div>
-                                                        <div id="rbac-resource-picker" class="rbac-resource-picker"></div>
-                                                        <div id="rbac-resource-pagination" class="rbac-pagination">
-                                                            <button type="button" class="btn-secondary btn-small" data-rbac-page-previous onclick="changeRbacResourcePage(-1)" data-i18n="rbac.pagination.previous">上一页</button>
-                                                            <span data-rbac-page-info>第 1 页</span>
-                                                            <button type="button" class="btn-secondary btn-small" data-rbac-page-next onclick="changeRbacResourcePage(1)" data-i18n="rbac.pagination.next">下一页</button>
-                                                        </div>
-                                                    </section>
-                                                    <section class="rbac-resource-section">
-                                                        <div class="rbac-resource-section-head">
-                                                            <div>
-                                                                <strong data-i18n="rbac.currentAssignments">当前单独授权</strong>
-                                                                <span><span id="rbac-current-assignment-count">0</span> <span data-i18n="rbac.items">项</span></span>
-                                                            </div>
-                                                        </div>
-                                                        <div class="rbac-assignment-filterbar">
-                                                            <div class="rbac-assignment-filters">
-                                                                <select id="rbac-assignment-filter-type" class="form-select rbac-form-select" onchange="changeRbacAssignmentFilter(this.value)" aria-label="筛选资源类型">
-                                                                    <option value="all" data-i18n="rbac.allResourceTypes">全部类型</option>
-                                                                    <option value="conversation" data-i18n="rbac.resourceTypes.conversation">对话</option>
-                                                                    <option value="project" data-i18n="rbac.resourceTypes.project">项目</option>
-                                                                    <option value="batch_task" data-i18n="rbac.resourceTypes.batch_task">批量任务</option>
-                                                                    <option value="vulnerability" data-i18n="rbac.resourceTypes.vulnerability">漏洞</option>
-                                                                    <option value="asset" data-i18n="rbac.resourceTypes.asset">资产</option>
-                                                                    <option value="webshell" data-i18n="rbac.resourceTypes.webshell">WebShell 连接</option>
-                                                                    <option value="c2_listener" data-i18n="rbac.resourceTypes.c2_listener">C2 监听器</option>
-                                                                </select>
-                                                                <input id="rbac-assignment-search" class="form-input" type="search" placeholder="搜索已授权资源名称或 ID" data-i18n="rbac.searchAssignments" data-i18n-attr="placeholder" oninput="filterRbacAssignments(this.value)">
-                                                            </div>
-                                                        </div>
-                                                        <div id="rbac-assignments-list" class="rbac-assignments-list"></div>
-                                                        <div id="rbac-assignment-pagination" class="rbac-pagination">
-                                                            <button type="button" class="btn-secondary btn-small" data-rbac-page-previous onclick="changeRbacAssignmentPage(-1)" data-i18n="rbac.pagination.previous">上一页</button>
-                                                            <span data-rbac-page-info></span>
-                                                            <button type="button" class="btn-secondary btn-small" data-rbac-page-next onclick="changeRbacAssignmentPage(1)" data-i18n="rbac.pagination.next">下一页</button>
-                                                        </div>
-                                                    </section>
-                                                </div>
-                                            </div>
-                                            <div id="rbac-tab-audit" class="rbac-tab-panel" hidden>
-                                                <div class="rbac-audit-toolbar">
-                                                    <div class="rbac-audit-heading">
-                                                        <strong data-i18n="rbac.auditTitle">权限变更记录</strong>
-                                                        <p class="rbac-muted" data-i18n="rbac.auditHint">展示该成员相关的平台权限操作审计。</p>
-                                                    </div>
-                                                    <div class="rbac-audit-filterbar" role="search" aria-label="变更记录筛选" data-i18n="rbac.auditFilters.filterBarLabel" data-i18n-attr="aria-label">
-                                                        <label class="rbac-audit-filter rbac-audit-filter--action">
-                                                            <span data-i18n="rbac.auditColumns.action">操作</span>
-                                                            <select id="rbac-audit-action-filter" class="form-select rbac-form-select" onchange="setRbacAuditFilter('action', this.value)" aria-label="按操作筛选" data-i18n="rbac.auditFilters.actionLabel" data-i18n-attr="aria-label">
-                                                                <option value="" data-i18n="rbac.auditFilters.allActions">全部操作</option>
-                                                                <option value="assign_resource" data-i18n="rbac.auditActions.assign_resource">授权资源访问</option>
-                                                                <option value="delete_resource_assignment" data-i18n="rbac.auditActions.delete_resource_assignment">撤销资源授权</option>
-                                                                <option value="create_user" data-i18n="rbac.auditActions.create_user">创建平台用户</option>
-                                                                <option value="update_user" data-i18n="rbac.auditActions.update_user">更新平台用户</option>
-                                                            </select>
-                                                        </label>
-                                                        <label class="rbac-audit-filter rbac-audit-filter--resource">
-                                                            <span data-i18n="rbac.auditColumns.resourceType">资源类型</span>
-                                                            <select id="rbac-audit-resource-type-filter" class="form-select rbac-form-select" onchange="setRbacAuditFilter('resourceType', this.value)" aria-label="按资源类型筛选" data-i18n="rbac.auditFilters.resourceTypeLabel" data-i18n-attr="aria-label">
-                                                                <option value="" data-i18n="rbac.auditFilters.allResourceTypes">全部资源类型</option>
-                                                                <option value="user" data-i18n="rbac.resourceTypes.user">平台用户</option>
-                                                                <option value="project" data-i18n="rbac.resourceTypes.project">项目</option>
-                                                                <option value="conversation" data-i18n="rbac.resourceTypes.conversation">对话</option>
-                                                                <option value="vulnerability" data-i18n="rbac.resourceTypes.vulnerability">漏洞</option>
-                                                                <option value="asset" data-i18n="rbac.resourceTypes.asset">资产</option>
-                                                                <option value="webshell" data-i18n="rbac.resourceTypes.webshell">WebShell 连接</option>
-                                                                <option value="batch_task" data-i18n="rbac.resourceTypes.batch_task">批量任务</option>
-                                                                <option value="c2_listener" data-i18n="rbac.resourceTypes.c2_listener">C2 监听器</option>
-                                                            </select>
-                                                        </label>
-                                                    </div>
-                                                </div>
-                                                <div id="rbac-audit-list" class="rbac-audit-list">
-                                                    <div class="rbac-empty"><strong data-i18n="rbac.empty.selectUserFirst">请先选择用户</strong></div>
-                                                </div>
-                                                <div id="rbac-audit-pagination" class="rbac-pagination rbac-audit-pagination">
-                                                    <div class="rbac-audit-pagination-meta">
-                                                        <span data-rbac-page-range>显示 0-0 / 共 0 条记录</span>
-                                                        <label class="rbac-audit-page-size-control">
-                                                            <span data-i18n="rbac.pagination.rowsPerPage">每页显示</span>
-                                                            <select id="rbac-audit-page-size" class="form-select rbac-form-select" onchange="changeRbacAuditPageSize(this.value)" aria-label="每页显示条数" data-i18n="rbac.auditPageSizeLabel" data-i18n-attr="aria-label">
-                                                                <option value="20">20</option>
-                                                                <option value="50">50</option>
-                                                                <option value="100">100</option>
-                                                            </select>
-                                                        </label>
-                                                    </div>
-                                                    <div class="rbac-audit-pagination-nav">
-                                                        <button type="button" class="btn-secondary btn-small" data-rbac-page-first onclick="setRbacAuditPage(0)" data-i18n="rbac.pagination.first" disabled>首页</button>
-                                                        <button type="button" class="btn-secondary btn-small" data-rbac-page-previous onclick="changeRbacAuditPage(-1)" data-i18n="rbac.pagination.previous" disabled>上一页</button>
-                                                        <span data-rbac-page-info>第 1 / 1 页</span>
-                                                        <button type="button" class="btn-secondary btn-small" data-rbac-page-next onclick="changeRbacAuditPage(1)" data-i18n="rbac.pagination.next" disabled>下一页</button>
-                                                        <button type="button" class="btn-secondary btn-small" data-rbac-page-last onclick="setRbacAuditPage(-1)" data-i18n="rbac.pagination.last" disabled>末页</button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </section>
-                                    </div>
-                                    <div id="rbac-view-roles" class="rbac-workspace-view rbac-role-management" hidden>
-                                        <div class="rbac-role-management-head">
-                                            <div>
-                                                <h3 data-i18n="rbac.roleCatalog">角色目录</h3>
-                                                <p class="rbac-muted" data-i18n="rbac.roleCatalogHint">先定义角色的操作权限与资源范围，再分配给成员。</p>
-                                            </div>
-                                            <div class="rbac-role-management-actions">
-                                                <div class="rbac-toolbar-search">
-                                                    <label for="rbac-role-search" data-i18n="rbac.filterRoles">筛选角色</label>
-                                                    <input id="rbac-role-search" class="form-input" type="search" placeholder="搜索角色或权限" data-i18n="rbac.searchRoles" data-i18n-attr="placeholder" oninput="setRbacRoleSearch(this.value)">
-                                                </div>
-                                                <button class="btn-primary btn-small" type="button" onclick="openRbacRoleModal()" data-i18n="rbac.createRole">新建角色</button>
-                                            </div>
-                                        </div>
-                                        <div id="rbac-role-catalog" class="rbac-role-catalog"></div>
-                                    </div>
-                                </div>
-                            </div>
             </div>
         </div>
     </div>
@@ -5506,10 +5423,10 @@
                         <span data-i18n="attackChainModal.regenerate">重新生成</span>
                     </button>
                     <button class="btn-secondary attack-chain-action-btn" onclick="exportAttackChain('png')" data-i18n="attackChainModal.exportPng" data-i18n-attr="title" title="导出为PNG">
-                        📥 PNG
+                        <svg class="cs-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> PNG
                     </button>
                     <button class="btn-secondary attack-chain-action-btn" onclick="exportAttackChain('svg')" data-i18n="attackChainModal.exportSvg" data-i18n-attr="title" title="导出为SVG">
-                        📥 SVG
+                        <svg class="cs-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> SVG
                     </button>
                     <button class="btn-secondary attack-chain-action-btn" onclick="refreshAttackChain()" data-i18n="attackChainModal.refreshTitle" data-i18n-attr="title" title="刷新当前攻击链（不重新生成）">
                         <span data-i18n="common.refresh">刷新</span>
@@ -5857,7 +5774,7 @@
             </div>
             <div class="modal-footer workflow-package-modal-footer">
                 <div class="workflow-package-footer-note">
-                    <span aria-hidden="true">✓</span>
+                    <span aria-hidden="true"><svg class="cs-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
                     <span data-i18n="workflows.package.footerNote">导入前不会改动现有工作流</span>
                 </div>
                 <div class="workflow-package-footer-actions">
@@ -6423,8 +6340,16 @@
                 </div>
                 <div class="form-group">
                     <label for="role-icon" data-i18n="roleModal.roleIcon">角色图标</label>
-                    <input type="text" id="role-icon" data-i18n="roleModal.roleIconPlaceholder" data-i18n-attr="placeholder" placeholder="输入emoji图标，例如: 🏆" maxlength="10" />
-                    <small class="form-hint" data-i18n="roleModal.roleIconHint">输入一个emoji作为角色的图标，将显示在角色选择器中。</small>
+                    <input type="hidden" id="role-icon" />
+                    <div class="role-icon-picker" id="role-icon-picker">
+                        <button type="button" class="role-icon-current" id="role-icon-current" onclick="toggleRoleIconPicker()" aria-haspopup="grid" aria-expanded="false">
+                            <span class="role-icon-current-glyph" id="role-icon-glyph" aria-hidden="true"></span>
+                            <span class="role-icon-current-name" id="role-icon-name"></span>
+                            <svg class="role-icon-current-caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+                        </button>
+                        <div class="role-icon-grid" id="role-icon-grid" role="grid" hidden></div>
+                    </div>
+                    <small class="form-hint" data-i18n="roleModal.roleIconHint">选择一个图标作为角色的标识，将显示在角色选择器中。</small>
                 </div>
                 <div class="form-group">
                     <label for="role-user-prompt" data-i18n="roleModal.userPrompt">用户提示词</label>
@@ -6449,7 +6374,7 @@
                     <label data-i18n="roleModal.relatedTools">关联的工具（可选）</label>
                     <div id="role-tools-default-hint" class="role-tools-default-hint" style="display: none;">
                         <div class="role-tools-default-info">
-                            <span class="role-tools-default-icon">ℹ️</span>
+                            <span class="role-tools-default-icon"><svg class="cs-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></span>
                             <div class="role-tools-default-content">
                                 <div class="role-tools-default-title" data-i18n="roleModal.defaultRoleToolsTitle">默认角色使用所有工具</div>
                                 <div class="role-tools-default-desc" data-i18n="roleModal.defaultRoleToolsDesc">默认角色会自动使用MCP管理中启用的所有工具，无需单独配置。</div>
@@ -6500,101 +6425,14 @@
         </div>
     </div>
 
-    <div id="rbac-user-modal" class="modal">
-        <div class="modal-content" style="max-width: 640px;">
-            <div class="modal-header">
-                <h2 id="rbac-user-modal-title" data-i18n="rbac.userModalTitle">平台用户</h2>
-                <span class="modal-close" onclick="closeRbacUserModal()">&times;</span>
-            </div>
-            <div class="modal-body">
-                <input type="hidden" id="rbac-user-id">
-                <div class="form-group">
-                    <label for="rbac-username" data-i18n="rbac.username">用户名</label>
-                    <input type="text" id="rbac-username" class="form-input" autocomplete="off">
-                </div>
-                <div class="form-group">
-                    <label for="rbac-display-name" data-i18n="rbac.displayName">显示名称</label>
-                    <input type="text" id="rbac-display-name" class="form-input" autocomplete="off">
-                </div>
-                <div class="form-group">
-                    <label for="rbac-password" data-i18n="rbac.password">密码</label>
-                    <input type="password" id="rbac-password" class="form-input" autocomplete="new-password" placeholder="编辑时留空表示不修改" data-i18n="rbac.passwordPlaceholder" data-i18n-attr="placeholder">
-                </div>
-                <div class="form-group">
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="rbac-user-enabled" class="modern-checkbox" checked>
-                        <span class="checkbox-custom"></span>
-                        <span class="checkbox-text" data-i18n="rbac.enabled">启用账号</span>
-                    </label>
-                </div>
-                <div class="form-group" id="rbac-user-roles-create-section">
-                    <label data-i18n="rbac.roles">角色</label>
-                    <div id="rbac-user-role-checkboxes" class="rbac-checkbox-grid"></div>
-                </div>
-                <div class="form-group" id="rbac-user-roles-edit-section" hidden>
-                    <label data-i18n="rbac.roles">角色</label>
-                    <div id="rbac-user-roles-readonly" class="rbac-user-roles-readonly"></div>
-                    <p class="rbac-field-hint" data-i18n="rbac.editUserRolesHint">角色请在成员详情页的「角色权限」标签中统一管理。</p>
-                    <button type="button" class="btn-secondary btn-small" onclick="openRbacRolesFromUserModal()" data-i18n="rbac.assignRolesNow">去分配角色</button>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn-secondary" type="button" onclick="closeRbacUserModal()" data-i18n="common.cancel">取消</button>
-                <button class="btn-primary" data-require-permission="rbac:write" type="button" onclick="saveRbacUser()" data-i18n="common.save">保存</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="rbac-role-modal" class="modal">
-        <div class="modal-content" style="max-width: 840px;">
-            <div class="modal-header">
-                <h2 id="rbac-role-modal-title" data-i18n="rbac.roleModalTitle">平台角色</h2>
-                <span class="modal-close" onclick="closeRbacRoleModal()">&times;</span>
-            </div>
-            <div class="modal-body">
-                <input type="hidden" id="rbac-role-id">
-                <div class="form-group">
-                    <label for="rbac-role-name" data-i18n="rbac.roleName">角色名称</label>
-                    <input type="text" id="rbac-role-name" class="form-input" autocomplete="off">
-                </div>
-                <div class="form-group">
-                    <label for="rbac-role-description" data-i18n="rbac.description">描述</label>
-                    <input type="text" id="rbac-role-description" class="form-input" autocomplete="off">
-                </div>
-                <div class="form-group">
-                    <label for="rbac-role-scope" data-i18n="rbac.scope">资源范围</label>
-                    <select id="rbac-role-scope" class="form-select rbac-form-select">
-                        <option value="all" data-i18n="rbac.scopes.all.option">全部资源 — 可访问平台内所有数据</option>
-                        <option value="assigned" data-i18n="rbac.scopes.assigned.option">指定资源 — 仅访问管理员授权的数据</option>
-                        <option value="own" data-i18n="rbac.scopes.own.option">本人创建 — 仅访问自己创建的数据</option>
-                    </select>
-                    <p id="rbac-role-scope-hint" class="rbac-field-hint" data-i18n="rbac.scopeHint">资源范围与操作权限共同决定最终访问能力。</p>
-                </div>
-                <div class="form-group">
-                    <label data-i18n="rbac.permissions">权限</label>
-                    <div class="rbac-permission-tools">
-                        <input id="rbac-permission-search" class="form-input" type="search" placeholder="搜索权限，例如 project:read" data-i18n="rbac.searchPermissions" data-i18n-attr="placeholder" oninput="filterRbacPermissions(this.value)">
-                        <button class="btn-secondary btn-small" type="button" onclick="selectVisibleRbacPermissions(true)" data-i18n="rbac.selectVisible">选择可见</button>
-                        <button class="btn-secondary btn-small" type="button" onclick="selectVisibleRbacPermissions(false)" data-i18n="rbac.clearVisible">清空可见</button>
-                    </div>
-                    <div id="rbac-permission-checkboxes" class="rbac-permission-groups"></div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn-secondary" type="button" onclick="closeRbacRoleModal()" data-i18n="common.cancel">取消</button>
-                <button class="btn-primary" data-require-permission="rbac:write" id="rbac-role-save-btn" type="button" onclick="saveRbacRole()" data-i18n="common.save">保存</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- 项目管理弹窗（挂 body 下，避免被 .page overflow 裁剪） -->
+    <!-- 空项目弹窗（次要路径；主路径为导入本地项目） -->
     <div id="project-modal" class="modal-overlay projects-modal-overlay" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="project-modal-title" onclick="if(event.target===this)closeProjectModal()">
         <div class="projects-modal-dialog" onclick="event.stopPropagation()">
             <div class="projects-modal-header">
                 <div class="projects-modal-header-text">
                     <div>
-                        <h3 id="project-modal-title" data-i18n="projects.modalNewTitle">新建项目</h3>
-                        <p id="project-modal-subtitle" class="projects-modal-subtitle" data-i18n="projects.modalNewSubtitle">创建后可绑定对话，跨会话共享事实黑板</p>
+                        <h3 id="project-modal-title" data-i18n="projects.modalEmptyTitle">创建空项目</h3>
+                        <p id="project-modal-subtitle" class="projects-modal-subtitle" data-i18n="projects.modalEmptySubtitle">仅创建项目名称，稍后可再关联本地文件夹</p>
                     </div>
                 </div>
                 <button type="button" class="projects-modal-close" onclick="closeProjectModal()" aria-label="关闭" data-i18n="common.close" data-i18n-attr="aria-label" data-i18n-skip-text="true">&times;</button>
@@ -6613,6 +6451,76 @@
             <div class="projects-modal-footer">
                 <button class="btn-secondary" type="button" onclick="closeProjectModal()" data-i18n="common.cancel">取消</button>
                 <button class="btn-primary" data-require-permission="project:write" type="button" id="project-modal-submit-btn" onclick="saveProjectModal()" data-i18n="projects.createProject">创建项目</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="project-import-modal" class="modal-overlay projects-modal-overlay" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="project-import-modal-title" onclick="if(event.target===this)closeProjectImportModal()">
+        <div class="projects-modal-dialog projects-modal-dialog--import" onclick="event.stopPropagation()">
+            <div class="projects-modal-header">
+                <div class="projects-modal-header-text">
+                    <div>
+                        <h3 id="project-import-modal-title" data-i18n="projects.importModalTitle">导入本地项目</h3>
+                        <p class="projects-modal-subtitle" data-i18n="projects.importModalSubtitle">选择本机文件夹，创建项目或关联到现有项目</p>
+                    </div>
+                </div>
+                <button type="button" class="projects-modal-close" onclick="closeProjectImportModal()" aria-label="关闭" data-i18n="common.close" data-i18n-attr="aria-label" data-i18n-skip-text="true">&times;</button>
+            </div>
+            <div class="projects-modal-body">
+                <div id="project-import-link-fields">
+                    <div class="projects-form-field">
+                        <label for="project-import-path" data-i18n="projects.importPathLabel">本地文件夹路径 <span class="required">*</span></label>
+                        <div class="projects-import-pick-row">
+                            <input type="text" id="project-import-path" class="form-input projects-import-path-input" placeholder="例如 D:\Projects\demo" autocomplete="off" data-i18n="projects.importPathPlaceholder" data-i18n-attr="placeholder">
+                            <button type="button" class="btn-secondary" id="project-import-browse-btn" onclick="browseProjectImportFolder()" data-i18n="projects.importBrowse">浏览…</button>
+                        </div>
+                        <p class="form-hint" data-i18n="projects.importLinkNote">桌面端可点「浏览」选择；浏览器部署时可粘贴服务器上的绝对路径</p>
+                    </div>
+                </div>
+                <div id="project-import-copy-fields" hidden>
+                    <div class="projects-form-field">
+                        <label data-i18n="projects.importFolderLabel">本地文件夹</label>
+                        <div class="projects-import-pick-row">
+                            <button type="button" class="btn-secondary" id="project-import-pick-btn" onclick="pickProjectImportFolder()" data-i18n="projects.importPickFolder">选择文件夹…</button>
+                            <span id="project-import-folder-label" class="projects-import-folder-label"></span>
+                        </div>
+                        <p class="form-hint" id="project-import-summary" data-i18n="projects.importPickHint">将自动跳过 .git、node_modules 等与任务无关的目录</p>
+                    </div>
+                </div>
+                <div class="projects-form-field" id="project-import-new-fields">
+                    <label for="project-import-name" data-i18n="projects.projectName">项目名称</label>
+                    <input type="text" id="project-import-name" class="form-input" maxlength="200" autocomplete="off" placeholder="留空默认使用文件夹名称" data-i18n="projects.importNamePlaceholder" data-i18n-attr="placeholder">
+                </div>
+                <div class="projects-form-field">
+                    <label data-i18n="projects.importModeLabel">方式</label>
+                    <div class="projects-import-target-row projects-import-mode-row">
+                        <label class="projects-import-target-option"><input type="radio" name="project-import-mode" value="link" onchange="onProjectImportModeChange()" checked><span data-i18n="projects.importModeLink">关联本地文件夹（推荐）</span></label>
+                        <label class="projects-import-target-option"><input type="radio" name="project-import-mode" value="copy" onchange="onProjectImportModeChange()"><span data-i18n="projects.importModeCopy">复制到项目工作区</span></label>
+                    </div>
+                    <p class="form-hint" id="project-import-mode-hint" data-i18n="projects.importModeLinkHint">不复制、不上传：把路径写入项目事实黑板，智能体直接用 read_file/glob/grep 原地读取该文件夹</p>
+                </div>
+                <div class="projects-form-field">
+                    <label data-i18n="projects.importTargetLabel">导入到</label>
+                    <div class="projects-import-target-row">
+                        <label class="projects-import-target-option"><input type="radio" name="project-import-target" value="new" onchange="onProjectImportTargetChange()" checked><span data-i18n="projects.importTargetNew">新建项目</span></label>
+                        <label class="projects-import-target-option"><input type="radio" name="project-import-target" value="existing" onchange="onProjectImportTargetChange()"><span data-i18n="projects.importTargetExisting">现有项目</span></label>
+                    </div>
+                </div>
+                <div class="projects-form-field" id="project-import-existing-fields" hidden>
+                    <label for="project-import-existing-select" data-i18n="projects.importTargetExisting">现有项目</label>
+                    <select id="project-import-existing-select" class="form-input"></select>
+                </div>
+                <div id="project-import-progress" class="projects-import-progress" hidden>
+                    <div class="projects-import-progress-bar"><div class="projects-import-progress-fill" id="project-import-progress-fill" style="width:0%"></div></div>
+                    <p class="form-hint" id="project-import-progress-text"></p>
+                </div>
+            </div>
+            <div class="projects-modal-footer projects-modal-footer--split">
+                <button class="btn-text projects-import-empty-link" type="button" data-require-permission="project:write" onclick="showEmptyProjectModalFromImport()" data-i18n="projects.createEmptyProject">创建空项目</button>
+                <div class="projects-modal-footer-right">
+                    <button class="btn-secondary" type="button" onclick="closeProjectImportModal()" data-i18n="common.cancel">取消</button>
+                    <button class="btn-primary" type="button" id="project-import-submit-btn" onclick="startProjectFolderImport()" data-i18n="projects.importLinkSubmit">关联文件夹</button>
+                </div>
             </div>
         </div>
     </div>
@@ -6800,39 +6708,40 @@
     <script src="/static/js/i18n.js"></script>
     <script src="/static/js/theme.js"></script>
     <script src="/static/js/builtin-tools.js"></script>
-    <script src="/static/js/auth.js?v=20260907-blocked-1"></script>
+    <script src="/static/js/auth.js?v=20260923-profile-1"></script>
     <script src="/static/js/modal.js"></script>
-    <script src="/static/js/notifications.js"></script>
-    <script src="/static/js/info-collect.js?v=20260717-1"></script>
-    <script src="/static/js/assets.js?v=20260717-7"></script>
+    <script src="/static/js/notifications.js?v=20260922-rail-popover-2"></script>
+    <script src="/static/js/info-collect.js?v=20260923-ui-1"></script>
+    <script src="/static/js/assets.js?v=20260923-ui-1"></script>
     <script src="/static/js/agents.js"></script>
-    <script src="/static/js/dashboard.js"></script>
+    <script src="/static/js/dashboard.js?v=20260923-ui-1"></script>
     <script src="/static/js/chat-scroll.js?v=20260815-1"></script>
-    <script src="/static/js/monitor.js?v=20260907-blocked-1"></script>
-    <script src="/static/js/chat.js?v=20260907-blocked-1"></script>
+    <script src="/static/js/monitor.js?v=20260923-ui-1"></script>
+    <script src="/static/js/chat.js?v=20260922-rail-depth-1"></script>
     <script src="/static/js/chat-plan-progress.js?v=20260815-1"></script>
-    <script src="/static/js/hitl.js?v=20260819-1"></script>
+    <script src="/static/js/hitl.js?v=20260923-ui-1"></script>
     <script src="/static/js/tool-guard.js?v=20260907-7"></script>
-    <script src="/static/js/settings.js?v=20260717-1"></script>
+    <script src="/static/js/settings.js?v=20260923-adminonly-1"></script>
+    <script src="/static/js/api-keys.js?v=20260912-1"></script>
     <script src="/static/js/audit-datetime-picker.js"></script>
-    <script src="/static/js/audit.js"></script>
+    <script src="/static/js/audit.js?v=20260923-ui-1"></script>
     <script src="/static/js/wechat-robot.js"></script>
     <script src="/static/vendor/xterm.js"></script>
     <script src="/static/vendor/xterm-addon-fit.js"></script>
-    <script src="/static/js/terminal.js"></script>
-    <script src="/static/js/knowledge.js"></script>
-    <script src="/static/js/skills.js"></script>
+    <script src="/static/js/terminal.js?v=20260922-termbar-2"></script>
+    <script src="/static/js/agent-shell.js?v=20260923-adminonly-1"></script>
+    <script src="/static/js/knowledge.js?v=20260923-ui-1"></script>
+    <script src="/static/js/skills.js?v=20260923-ui-1"></script>
     <script src="/static/js/fact-graph.js"></script>
-    <script src="/static/js/projects.js?v=20260819-1"></script>
-    <script src="/static/js/vulnerability.js?v=14"></script>
-    <script src="/static/js/webshell.js?v=20260907-blocked-1"></script>
-    <script src="/static/js/chat-files.js"></script>
-    <script src="/static/js/tasks.js"></script>
+    <script src="/static/js/projects.js?v=20260922-import-1"></script>
+    <script src="/static/js/vulnerability.js?v=20260923-ui-1"></script>
+    <script src="/static/js/webshell.js?v=20260923-ui-1"></script>
+    <script src="/static/js/chat-files.js?v=20260923-ui-1"></script>
+    <script src="/static/js/tasks.js?v=20260923-ui-1"></script>
     <script src="/static/js/workflow-package-client.js"></script>
-    <script src="/static/js/workflows.js"></script>
-    <script src="/static/js/roles.js"></script>
-    <script src="/static/js/rbac.js"></script>
-    <script src="/static/js/c2.js"></script>
-    <script src="/static/js/rbac-guards.js?v=20260907-1"></script>
+    <script src="/static/js/workflows.js?v=20260923-ui-1"></script>
+    <script src="/static/js/roles.js?v=20260923-ui-1"></script>
+    <script src="/static/js/c2.js?v=20260923-ui-1"></script>
+    <script src="/static/js/rbac-guards.js?v=20260922-import-1"></script>
 </body>
 </html>

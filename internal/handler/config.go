@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strconv"
 	"strings"
@@ -15,17 +16,16 @@ import (
 
 	"cyberstrike-ai/internal/agents"
 	"cyberstrike-ai/internal/audit"
+	"cyberstrike-ai/internal/channelcheck"
 	"cyberstrike-ai/internal/config"
 	"cyberstrike-ai/internal/database"
 	"cyberstrike-ai/internal/knowledge"
-	"cyberstrike-ai/internal/llm"
 	"cyberstrike-ai/internal/mcp"
 	"cyberstrike-ai/internal/mcp/builtin"
 	"cyberstrike-ai/internal/openai"
 	"cyberstrike-ai/internal/security"
 	"cyberstrike-ai/internal/toolguard"
 
-	"github.com/cloudwego/eino/schema"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
@@ -349,13 +349,13 @@ func (h *ConfigHandler) GetConfig(c *gin.Context) {
 		subAgentCount = len(agents.MergeYAMLAndMarkdown(h.config.MultiAgent.SubAgents, load.SubAgents))
 	}
 	multiPub := config.MultiAgentPublic{
-		Enabled:                               h.config.MultiAgent.Enabled,
-		RobotDefaultAgentMode:                 config.NormalizeRobotAgentMode(h.config.MultiAgent),
-		BatchUseMultiAgent:                    h.config.MultiAgent.BatchUseMultiAgent,
-		SubAgentCount:                         subAgentCount,
-		Orchestration:                         config.NormalizeMultiAgentOrchestration(h.config.MultiAgent.Orchestration),
-		PlanExecuteLoopMaxIterations:          h.config.MultiAgent.PlanExecuteLoopMaxIterations,
-		SummarizationUserIntentLedgerMaxRunes: h.config.MultiAgent.EinoMiddleware.SummarizationUserIntentLedgerMaxRunesEffective(),
+		Enabled:                                    h.config.MultiAgent.Enabled,
+		RobotDefaultAgentMode:                      config.NormalizeRobotAgentMode(h.config.MultiAgent),
+		BatchUseMultiAgent:                         h.config.MultiAgent.BatchUseMultiAgent,
+		SubAgentCount:                              subAgentCount,
+		Orchestration:                              config.NormalizeMultiAgentOrchestration(h.config.MultiAgent.Orchestration),
+		PlanExecuteLoopMaxIterations:               h.config.MultiAgent.PlanExecuteLoopMaxIterations,
+		SummarizationUserIntentLedgerMaxRunes:      h.config.MultiAgent.EinoMiddleware.SummarizationUserIntentLedgerMaxRunesEffective(),
 		SummarizationUserIntentLedgerEntryMaxRunes: h.config.MultiAgent.EinoMiddleware.SummarizationUserIntentLedgerEntryMaxRunesEffective(),
 		LatestUserMessageMaxRunes:                  h.config.MultiAgent.EinoMiddleware.LatestUserMessageMaxRunesEffective(),
 		LatestUserMessageHeadRunes:                 h.config.MultiAgent.EinoMiddleware.LatestUserMessageHeadRunesEffective(),
@@ -716,6 +716,8 @@ func (h *ConfigHandler) GetTools(c *gin.Context) {
 
 // UpdateConfigRequest 更新配置请求
 type UpdateConfigRequest struct {
+	// Optional optimistic concurrency guard; legacy callers remain compatible.
+	AIExpected *config.AIConfig `json:"ai_expected,omitempty"`
 	AI         *config.AIConfig            `json:"ai,omitempty"`
 	OpenAI     *config.OpenAIConfig        `json:"openai,omitempty"`
 	Vision     *config.VisionConfig        `json:"vision,omitempty"`
@@ -794,6 +796,11 @@ func (h *ConfigHandler) UpdateConfig(c *gin.Context) {
 
 	h.mu.Lock()
 	defer h.mu.Unlock()
+
+	if req.AIExpected != nil && !reflect.DeepEqual(*req.AIExpected, h.config.AI) {
+		c.JSON(http.StatusConflict, gin.H{"error": "AI channels changed; reload and retry"})
+		return
+	}
 
 	// 更新OpenAI配置
 	if req.AI != nil {
@@ -1196,125 +1203,36 @@ type TestOpenAIRequest struct {
 
 // TestOpenAI 测试OpenAI API连接是否可用
 func (h *ConfigHandler) TestOpenAI(c *gin.Context) {
+	if !security.SessionHasPermission(c, "config:write") {
+		c.JSON(http.StatusForbidden, gin.H{"error": "config:write permission required"})
+		return
+	}
 	var req TestOpenAIRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的请求参数: " + err.Error()})
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 64*1024)
+	if c.ShouldBindJSON(&req) != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
 		return
 	}
-
-	if strings.TrimSpace(req.APIKey) == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "API Key 不能为空"})
+	if strings.TrimSpace(req.APIKey) == "" || strings.TrimSpace(req.Model) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "API Key and model are required"})
 		return
 	}
-	if strings.TrimSpace(req.Model) == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "模型不能为空"})
-		return
-	}
-
-	baseURL := strings.TrimSuffix(strings.TrimSpace(req.BaseURL), "/")
-	if baseURL == "" {
-		if strings.EqualFold(strings.TrimSpace(req.Provider), "claude") {
-			baseURL = "https://api.anthropic.com"
-		} else {
-			baseURL = "https://api.openai.com/v1"
+	if strings.TrimSpace(req.BaseURL) == "" {
+		req.BaseURL = "https://api.openai.com/v1"
+		if strings.EqualFold(req.Provider, "claude") {
+			req.BaseURL = "https://api.anthropic.com"
 		}
 	}
-
-	// 构造一个最小的 chat completion 请求
-	payload := map[string]interface{}{
-		"model": req.Model,
-		"messages": []map[string]string{
-			{"role": "user", "content": "Hi"},
-		},
-		"max_completion_tokens": 5,
-	}
-
-	// OpenAI-compatible 通道使用内部客户端；Claude 通道在下方直接使用 Eino agenticclaude。
-	tmpCfg := &config.OpenAIConfig{
-		Provider: req.Provider,
-		BaseURL:  baseURL,
-		APIKey:   strings.TrimSpace(req.APIKey),
-		Model:    req.Model,
-	}
-	client := openai.NewClient(tmpCfg, nil, h.logger)
-
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 30*time.Second)
 	defer cancel()
-
 	start := time.Now()
-	if llm.IsClaudeProvider(req.Provider) {
-		nativeModel, err := llm.NewClaudeAgenticModel(ctx, *tmpCfg, nil, 5, nil)
-		if err == nil {
-			_, err = nativeModel.Generate(ctx, []*schema.AgenticMessage{
-				schema.UserAgenticMessage("Hi"),
-			})
-		}
-		if err != nil {
-			c.JSON(http.StatusOK, gin.H{
-				"success": false,
-				"error":   "连接失败: " + err.Error(),
-			})
-			return
-		}
-		c.JSON(http.StatusOK, gin.H{
-			"success":    true,
-			"model":      tmpCfg.Model,
-			"latency_ms": time.Since(start).Milliseconds(),
-		})
-		return
-	}
-
-	var chatResp struct {
-		ID      string `json:"id"`
-		Object  string `json:"object"`
-		Model   string `json:"model"`
-		Choices []struct {
-			Message struct {
-				Role    string `json:"role"`
-				Content string `json:"content"`
-			} `json:"message"`
-		} `json:"choices"`
-	}
-	err := client.ChatCompletion(ctx, payload, &chatResp)
-	latency := time.Since(start)
-
+	err := channelcheck.Probe(ctx, channelcheck.Client(), req.Provider, req.BaseURL, strings.TrimSpace(req.APIKey), req.Model)
+	c.Header("Cache-Control", "no-store")
 	if err != nil {
-		if apiErr, ok := err.(*openai.APIError); ok {
-			c.JSON(http.StatusOK, gin.H{
-				"success":     false,
-				"error":       fmt.Sprintf("API 返回错误 (HTTP %d): %s", apiErr.StatusCode, apiErr.Body),
-				"status_code": apiErr.StatusCode,
-			})
-			return
-		}
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"error":   "连接失败: " + err.Error(),
-		})
+		c.JSON(http.StatusOK, gin.H{"success": false, "error": err.Error()})
 		return
 	}
-
-	// 严格校验：必须包含 choices 且有 assistant 回复
-	if len(chatResp.Choices) == 0 {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"error":   "API 响应缺少 choices 字段，请检查 Base URL 路径是否正确",
-		})
-		return
-	}
-	if chatResp.ID == "" && chatResp.Model == "" {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"error":   "API 响应格式不符合预期，请检查 Base URL 是否正确",
-		})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"success":    true,
-		"model":      chatResp.Model,
-		"latency_ms": latency.Milliseconds(),
-	})
+	c.JSON(http.StatusOK, gin.H{"success": true, "latency_ms": time.Since(start).Milliseconds()})
 }
 
 // ListModelsRequest 获取模型列表请求（OpenAI 兼容 GET /models）。

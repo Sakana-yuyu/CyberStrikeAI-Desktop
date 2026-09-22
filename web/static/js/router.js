@@ -110,7 +110,9 @@ function initRouter() {
         const hashParts = hash.split('?');
         let pageId = hashParts[0];
         if (pageId === 'c2') pageId = 'c2-listeners';
-        if (pageId && ['dashboard', 'chat', 'hitl', 'tool-guard', 'asset-overview', 'asset-library', 'info-collect', 'projects', 'vulnerabilities', 'webshell', 'chat-files', 'mcp-monitor', 'mcp-management', 'knowledge-management', 'knowledge-retrieval-logs', 'roles-management', 'platform-rbac', 'workflows', 'skills-monitor', 'skills-management', 'agents-management', 'settings', 'tasks', 'c2-listeners', 'c2-sessions', 'c2-tasks', 'c2-payloads', 'c2-events', 'c2-profiles'].includes(pageId)) {
+        // Desktop is admin-only: retired multi-role admin page redirects to chat.
+        if (pageId === 'platform-rbac') pageId = 'chat';
+        if (pageId && ['dashboard', 'chat', 'hitl', 'tool-guard', 'asset-overview', 'asset-library', 'info-collect', 'projects', 'vulnerabilities', 'webshell', 'chat-files', 'mcp-monitor', 'mcp-management', 'knowledge-management', 'knowledge-retrieval-logs', 'roles-management', 'workflows', 'skills-monitor', 'skills-management', 'agents-management', 'api-keys', 'settings', 'tasks', 'c2-listeners', 'c2-sessions', 'c2-tasks', 'c2-payloads', 'c2-events', 'c2-profiles'].includes(pageId)) {
             switchPage(pageId);
             if (pageId === 'chat') {
                 scheduleChatConversationFromHash(0);
@@ -119,12 +121,13 @@ function initRouter() {
         }
     }
     
-    // 默认显示仪表盘
-    switchPage('dashboard');
+    // 默认进入对话。无 hash 时直接打开 Agent，而不是仪表盘。
+    switchPage('chat');
 }
 
 // 切换页面
 function switchPage(pageId) {
+    if (pageId === 'api-keys' && (typeof hasPermission !== 'function' || !hasPermission('config:write'))) return;
     const targetPage = document.getElementById(`page-${pageId}`);
     if (!targetPage) return;
     if (pageId !== 'chat') {
@@ -155,6 +158,13 @@ function switchPage(pageId) {
     // 显示目标页面
     targetPage.classList.add('active');
     currentPage = pageId;
+
+    // 仪表盘 / 资产概览用卡片错落入场；移除再强制 reflow 以便重进时重播
+    if (pageId === 'dashboard' || pageId === 'asset-overview') {
+        targetPage.classList.remove('page-enter-anim');
+        void targetPage.offsetWidth;
+        targetPage.classList.add('page-enter-anim');
+    }
         
     const newHash = buildHashForPage(pageId);
     if (window.location.hash.slice(1) !== newHash) {
@@ -524,6 +534,9 @@ async function initPage(pageId) {
                 initChatFilesPage();
             }
             break;
+        case 'api-keys':
+            if (typeof initAPIKeysPage === 'function') initAPIKeysPage();
+            break;
         case 'settings':
             // 初始化设置页面（不需要加载工具列表）
             if (typeof loadConfig === 'function') {
@@ -547,11 +560,6 @@ async function initPage(pageId) {
                         renderRolesList();
                     }
                 });
-            }
-            break;
-        case 'platform-rbac':
-            if (typeof initPlatformRbacPage === 'function') {
-                initPlatformRbacPage();
             }
             break;
         case 'workflows':
@@ -607,6 +615,14 @@ async function initPage(pageId) {
     }
 }
 
+// Restricted deep links can arrive before stored authentication is restored.
+// Replay only this deferred route after validation/login, never bypass permissions.
+window.addEventListener('app-authenticated', function() {
+    if (window.location.hash.slice(1).split('?')[0] === 'api-keys') {
+        switchPage('api-keys');
+    }
+});
+
 // 页面加载完成后初始化路由
 document.addEventListener('DOMContentLoaded', function() {
     initRouter();
@@ -621,7 +637,8 @@ document.addEventListener('DOMContentLoaded', function() {
         let pageId = hashParts[0];
         
         if (pageId === 'c2') pageId = 'c2-listeners';
-        if (pageId && ['dashboard', 'chat', 'hitl', 'tool-guard', 'asset-overview', 'asset-library', 'info-collect', 'projects', 'tasks', 'workflows', 'vulnerabilities', 'webshell', 'chat-files', 'mcp-monitor', 'mcp-management', 'knowledge-management', 'knowledge-retrieval-logs', 'roles-management', 'platform-rbac', 'skills-monitor', 'skills-management', 'agents-management', 'settings', 'c2-listeners', 'c2-sessions', 'c2-tasks', 'c2-payloads', 'c2-events', 'c2-profiles'].includes(pageId)) {
+        if (pageId === 'platform-rbac') pageId = 'chat';
+        if (pageId && ['dashboard', 'chat', 'hitl', 'tool-guard', 'asset-overview', 'asset-library', 'info-collect', 'projects', 'tasks', 'workflows', 'vulnerabilities', 'webshell', 'chat-files', 'mcp-monitor', 'mcp-management', 'knowledge-management', 'knowledge-retrieval-logs', 'roles-management', 'skills-monitor', 'skills-management', 'agents-management', 'api-keys', 'settings', 'c2-listeners', 'c2-sessions', 'c2-tasks', 'c2-payloads', 'c2-events', 'c2-profiles'].includes(pageId)) {
             switchPage(pageId);
             if (pageId === 'chat') {
                 scheduleChatConversationFromHash(0);

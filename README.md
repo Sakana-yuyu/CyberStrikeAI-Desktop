@@ -267,6 +267,28 @@ If server logs show `client sent an HTTP request to an HTTPS server`, a client i
 
 **Note:** The Python virtual environment (`venv/`) is automatically created and managed by `run.sh`. Tools that require Python (like `api-fuzzer`, `http-framework-test`, etc.) will automatically use this environment.
 
+### Desktop App (Windows)
+
+Besides the browser, the project can also run as a **native desktop application**: the full server starts in-process (bound to `127.0.0.1` only by default) and opens a standalone window via the system WebView2 runtime. All web features (chat, SSE streaming, terminal, file upload/download) work unchanged.
+
+```bash
+# Build GUI mode (no console window, double-click to run)
+./build-desktop.sh
+
+# Build console mode (keeps terminal output for troubleshooting)
+./build-desktop.sh --console
+```
+
+The resulting `CyberStrikeAI-Desktop.exe` must run alongside the project resource directories (`web/`, `config.example.yaml`, `roles/`, `skills/`, etc.). Desktop behavior:
+
+- **First run**: `config.yaml` is generated from `config.example.yaml`, and the one-time `admin` bootstrap password is shown in a dialog (no console needed)
+- **Network**: loopback only by default (`127.0.0.1`, plain HTTP); add `--listen 0.0.0.0` for LAN access; a free port is picked automatically when the configured one is occupied
+- **Single instance**: launching a second copy opens the running instance in the default browser (two processes writing the same SQLite database would deadlock)
+- **Logs**: without a console, server logs go to `logs/server.log`, access logs and startup banners to `logs/startup.log`
+- **Requirements**: Windows 10/11 generally ship the WebView2 runtime; if missing, the app falls back to the default browser
+- **Antivirus**: this project contains C2/pentest-related code; build artifacts may be falsely quarantined. Add the project directory to your antivirus allowlist on machines you own
+- Flags: `-config` sets the config path, `-port` overrides the port, `--no-window` runs server-only
+
 ### Upgrade and Compatibility
 
 **CyberStrikeAI one-click upgrade:**

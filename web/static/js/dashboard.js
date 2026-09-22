@@ -8,7 +8,7 @@
 //   - 自动轮询：startDashboardAutoRefresh() 每 60 秒拉一次；页面切走 / tab 隐藏时自动暂停，
 //     再切回时立即补一次刷新（基于 lastUpdatedAt 避免无效请求）；
 //   - 过期检测：updateLastUpdatedNow 记录时间戳；checkDashboardStale 每 30 秒检查，
-//     超过 5 分钟未刷新则在「上次更新」徽章上加 .is-stale 类（变灰 + 显示 ⚠️）。
+//     超过 5 分钟未刷新则在「上次更新」徽章上加 .is-stale 类（变灰 + 显示 ）。
 
 var DASHBOARD_POLL_INTERVAL_MS = 60 * 1000;
 var DASHBOARD_STALE_THRESHOLD_MS = 5 * 60 * 1000;
@@ -50,6 +50,10 @@ async function refreshDashboard() {
     // 体验优化：自动轮询 / 已经有数据时，不再把界面闪成「…」占位，
     // 直接在后台拉新数据并平滑替换；只有首次加载时才显示 loading 状态。
     var isInitialLoad = !dashboardState.lastUpdatedAt;
+    var dashboardPageEl = document.getElementById('page-dashboard');
+    if (isInitialLoad && dashboardPageEl) {
+        dashboardPageEl.classList.add('is-skeleton-loading');
+    }
     if (isInitialLoad) {
         if (runningEl) runningEl.textContent = '…';
         if (vulnTotalEl) vulnTotalEl.textContent = '…';
@@ -90,6 +94,7 @@ async function refreshDashboard() {
     }
 
     if (typeof apiFetch === 'undefined') {
+        if (dashboardPageEl) dashboardPageEl.classList.remove('is-skeleton-loading');
         if (runningEl) runningEl.textContent = '-';
         if (vulnTotalEl) vulnTotalEl.textContent = '-';
         setDashboardOverviewPlaceholder('-');
@@ -457,6 +462,9 @@ async function refreshDashboard() {
         var ph = document.getElementById('dashboard-tools-pie-placeholder');
         if (ph) { ph.style.removeProperty('display'); ph.textContent = (typeof window.t === 'function' ? window.t('dashboard.noCallData') : '暂无调用数据'); }
     } finally {
+        if (dashboardPageEl) {
+            dashboardPageEl.classList.remove('is-skeleton-loading');
+        }
         if (dashboardState.currentController === controller) {
             dashboardState.currentController = null;
         }
@@ -1139,7 +1147,7 @@ function updateLastUpdatedNow() {
 }
 
 // 数据过期检查：超过 DASHBOARD_STALE_THRESHOLD_MS 未刷新，给徽章加 .is-stale 类，
-// 显示 ⚠️ 图标提示用户「这块数据可能已经过期，请手动刷新或检查网络」
+// 显示  图标提示用户「这块数据可能已经过期，请手动刷新或检查网络」
 function checkDashboardStale() {
     if (!dashboardState.lastUpdatedAt) return;
     var ageMs = Date.now() - dashboardState.lastUpdatedAt;
@@ -1470,7 +1478,7 @@ function renderRecentFacts(res) {
         // 置顶列始终占位，避免有/无图钉时后续列错位
         var pinMark = '<span class="dashboard-recent-fact-pin' + (f.pinned ? ' is-pinned' : '') + '"' +
             (f.pinned ? (' title="' + esc(dt('projects.pinned', null, '置顶')) + '"') : '') +
-            ' aria-hidden="true">' + (f.pinned ? '📌' : '') + '</span>';
+            ' aria-hidden="true">' + (f.pinned ? ((typeof window.csIcon === 'function') ? window.csIcon('pin', { size: 12 }) : '') : '') + '</span>';
         var projectLabel = (f.project_name || '').trim() || dt('projects.defaultProjectName', null, '项目');
         var factKeyLabel = (f.fact_key || '').trim() || '—';
         var projectTone = projectFactProjectTone(pid, projectLabel);

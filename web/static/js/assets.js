@@ -404,6 +404,10 @@ function formatAssetImportSubmitError(message, validRows) {
 }
 
 async function loadAssetOverview() {
+    const overviewPage = document.getElementById('page-asset-overview');
+    if (overviewPage && !overviewPage.dataset.assetLoaded) {
+        overviewPage.classList.add('is-skeleton-loading');
+    }
     try {
         const response = await apiFetch('/api/assets/stats?days=' + assetOverviewDays);
         if (!response.ok) throw new Error(await response.text());
@@ -416,9 +420,12 @@ async function loadAssetOverview() {
         renderAssetTrendCharts(stats.asset_trend || [], stats.risk_trend || []);
         renderAssetCoverage(stats.coverage || {}, Number(stats.total || 0));
         renderAssetProtocolChart(stats.protocols || [], Number(stats.total || 0));
+        if (overviewPage) overviewPage.dataset.assetLoaded = '1';
     } catch (error) {
         console.error('加载资产概览失败:', error);
         if (typeof showInlineToast === 'function') showInlineToast(assetT('assets.loadFailed', '加载资产失败') + ': ' + error.message);
+    } finally {
+        if (overviewPage) overviewPage.classList.remove('is-skeleton-loading');
     }
 }
 

@@ -39,7 +39,8 @@
             'settingsTerminal.closeTabTitle': '关闭',
             'settingsTerminal.containerClickTitle': '点击此处后输入命令',
             'settingsTerminal.xtermNotLoaded': '未加载 xterm.js，请刷新页面或检查网络。',
-            'settingsTerminal.terminalTab': '终端 {{n}}'
+            'settingsTerminal.terminalTab': '终端 {{n}}',
+            'agentShell.closeTerminal': '关闭终端'
         };
         var s = fallbacks[key] || key;
         if (opts && typeof opts === 'object') {
@@ -182,6 +183,82 @@
         }
     }
 
+    function cssVar(name, fallback) {
+        var value = '';
+        try {
+            value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+        } catch (e) {}
+        return value || fallback;
+    }
+
+    function terminalTheme() {
+        var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+        var background = cssVar('--bg-primary', dark ? '#111827' : '#ffffff');
+        var foreground = cssVar('--text-primary', dark ? '#e5e7eb' : '#1a1a1a');
+        var accent = cssVar('--accent-color', dark ? '#60a5fa' : '#0066ff');
+        if (dark) {
+            return {
+                background: background,
+                foreground: foreground,
+                cursor: accent,
+                cursorAccent: background,
+                selection: 'rgba(96, 165, 250, 0.28)',
+                black: '#6b7280',
+                red: '#f87171',
+                green: '#34d399',
+                yellow: '#fbbf24',
+                blue: '#60a5fa',
+                magenta: '#c4b5fd',
+                cyan: '#22d3ee',
+                white: '#e5e7eb',
+                brightBlack: '#9ca3af',
+                brightRed: '#fca5a5',
+                brightGreen: '#6ee7b7',
+                brightYellow: '#fde68a',
+                brightBlue: '#93c5fd',
+                brightMagenta: '#ddd6fe',
+                brightCyan: '#67e8f9',
+                brightWhite: '#f9fafb'
+            };
+        }
+        return {
+            background: background,
+            foreground: foreground,
+            cursor: accent,
+            cursorAccent: background,
+            selection: 'rgba(0, 102, 255, 0.16)',
+            black: '#1a1a1a',
+            red: '#cf222e',
+            green: '#1a7f37',
+            yellow: '#9a6700',
+            blue: '#0969da',
+            magenta: '#8250df',
+            cyan: '#1b7c83',
+            white: '#57606a',
+            brightBlack: '#6e7781',
+            brightRed: '#a40e26',
+            brightGreen: '#116329',
+            brightYellow: '#7d4e00',
+            brightBlue: '#0550ae',
+            brightMagenta: '#6639ba',
+            brightCyan: '#0e6670',
+            brightWhite: '#24292f'
+        };
+    }
+
+    function applyTerminalTheme() {
+        var theme = terminalTheme();
+        terminals.forEach(function (tab) {
+            if (!tab || !tab.term) return;
+            try {
+                if (tab.term.options) tab.term.options.theme = theme;
+                else if (typeof tab.term.setOption === 'function') tab.term.setOption('theme', theme);
+            } catch (e) {}
+        });
+    }
+
+    document.addEventListener('cyberstrike-themechange', applyTerminalTheme);
+
     function createTerminalInContainer(container, tab) {
         if (typeof Terminal === 'undefined') return null;
         if (!tab.history) tab.history = [];
@@ -198,29 +275,7 @@
             scrollSensitivity: 1,
             fastScrollSensitivity: 5,
             scrollback: 1000,
-            theme: {
-                background: '#0d1117',
-                foreground: '#e6edf3',
-                cursor: '#58a6ff',
-                cursorAccent: '#0d1117',
-                selection: 'rgba(88, 166, 255, 0.3)',
-                black: '#484f58',
-                red: '#ff7b72',
-                green: '#3fb950',
-                yellow: '#d29922',
-                blue: '#58a6ff',
-                magenta: '#bc8cff',
-                cyan: '#39c5cf',
-                white: '#e6edf3',
-                brightBlack: '#6e7681',
-                brightRed: '#ffa198',
-                brightGreen: '#56d364',
-                brightYellow: '#e3b341',
-                brightBlue: '#79c0ff',
-                brightMagenta: '#d2a8ff',
-                brightCyan: '#56d4dd',
-                brightWhite: '#f0f6fc'
-            }
+            theme: terminalTheme()
         });
         var fitAddon = null;
         if (typeof FitAddon !== 'undefined') {
@@ -376,10 +431,13 @@
         var tabsEl = document.querySelector('.terminal-tabs');
         if (!tabsEl) return;
         var tabDivs = tabsEl.querySelectorAll('.terminal-tab');
-        var showClose = terminals.length > 1;
+        var showTabClose = terminals.length > 1;
         for (var i = 0; i < tabDivs.length; i++) {
-            var btn = tabDivs[i].querySelector('.terminal-tab-close');
-            if (btn) btn.style.display = showClose ? '' : 'none';
+            var tabCloseBtn = tabDivs[i].querySelector('.terminal-tab-close');
+            if (tabCloseBtn) {
+                tabCloseBtn.hidden = !showTabClose;
+                tabCloseBtn.style.display = showTabClose ? '' : 'none';
+            }
         }
     }
 

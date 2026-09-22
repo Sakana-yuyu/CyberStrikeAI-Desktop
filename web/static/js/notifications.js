@@ -253,8 +253,16 @@
     function closeDropdown() {
         const dropdown = document.getElementById('notification-dropdown');
         const bellBtn = document.getElementById('notification-bell-btn');
-        if (dropdown) dropdown.style.display = 'none';
-        if (bellBtn) bellBtn.classList.remove('active');
+        if (dropdown) {
+            dropdown.style.display = 'none';
+            if (typeof window.clearAgentRailPopover === 'function') {
+                window.clearAgentRailPopover(dropdown);
+            }
+        }
+        if (bellBtn) {
+            bellBtn.classList.remove('active');
+            bellBtn.setAttribute('aria-expanded', 'false');
+        }
         state.dropdownOpen = false;
     }
 
@@ -297,10 +305,11 @@
 
     function handleDocumentClick(event) {
         const container = document.querySelector('.notification-menu-container');
+        const dropdown = document.getElementById('notification-dropdown');
         if (!container) return;
-        if (!container.contains(event.target)) {
-            closeDropdown();
-        }
+        if (container.contains(event.target)) return;
+        if (dropdown && dropdown.contains(event.target)) return;
+        closeDropdown();
     }
 
     async function toggleDropdown() {
@@ -318,8 +327,15 @@
             if (dropdown.style.display !== 'none') return;
             dropdown.style.display = 'block';
             bellBtn.classList.add('active');
+            bellBtn.setAttribute('aria-expanded', 'true');
             state.dropdownOpen = true;
+            if (typeof window.placeAgentRailPopover === 'function') {
+                window.placeAgentRailPopover(dropdown, bellBtn);
+            }
             await refreshNotifications();
+            if (typeof window.placeAgentRailPopover === 'function' && dropdown.style.display !== 'none') {
+                window.placeAgentRailPopover(dropdown, bellBtn);
+            }
         };
         window.setTimeout(function () {
             void runOpen();

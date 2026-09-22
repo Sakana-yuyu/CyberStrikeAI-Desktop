@@ -495,7 +495,7 @@ function renderTasks(tasks) {
     if (historyTasks.length > 0) {
         html += `<div class="tasks-history-section">
             <div class="tasks-history-header">
-                <span class="tasks-history-title">📜 ` + _t('tasks.recentCompletedTasks') + `</span>
+                <span class="tasks-history-title">${(typeof window.csIcon === 'function') ? window.csIcon('scroll', {}) : ''} ` + _t('tasks.recentCompletedTasks') + `</span>
                 <button class="btn-secondary btn-small" onclick="clearTasksHistory()">` + _t('tasks.clearHistory') + `</button>
             </div>
             ${historyTasks.map(task => renderTaskItem(task, statusMap, true)).join('')}
@@ -551,11 +551,11 @@ function renderTaskItem(task, statusMap, isHistory = false) {
                         </label>
                     ` : '<div class="task-checkbox-placeholder"></div>'}
                     <span class="task-status ${status.class}">${status.text}</span>
-                    ${isHistory ? '<span class="task-history-badge" title="' + _t('tasks.historyBadge') + '">📜</span>' : ''}
+                    ${isHistory ? '<span class="task-history-badge" title="' + _t('tasks.historyBadge') + '">' + ((typeof window.csIcon==='function')?window.csIcon('scroll',{size:11}):'') + '</span>' : ''}
                     <span class="task-message" title="${escapeAttr((task.title || task.message || _t('tasks.unnamedTask')))}">${escapeHtml((task.title || task.message || _t('tasks.unnamedTask')))}</span>
                 </div>
                 <div class="task-actions">
-                    ${duration ? `<span class="task-duration" title="${_t('tasks.duration')}">⏱ ${duration}</span>` : ''}
+                    ${duration ? `<span class="task-duration" title="${_t('tasks.duration')}">${(typeof window.csIcon === 'function') ? window.csIcon('timer', {}) : ''} ${duration}</span>` : ''}
                     <span class="task-time" title="${isHistory && completedText ? _t('tasks.completedAt') : _t('tasks.startedAt')}">
                         ${isHistory && completedText ? completedText : timeText}
                     </span>
@@ -1093,32 +1093,19 @@ async function createBatchQueue() {
     }
 }
 
-// 获取角色图标（辅助函数）
+// 获取角色图标（辅助函数）：返回可安全注入 innerHTML 的 SVG/文本
 function getRoleIconForDisplay(roleName, rolesList) {
     if (!roleName || roleName === '') {
-        return '🔵'; // 默认角色图标
+        return ''; // 默认角色图标（渲染处回退到 SVG）
     }
-    
+
     if (Array.isArray(rolesList) && rolesList.length > 0) {
         const role = rolesList.find(r => r.name === roleName);
-        if (role && role.icon) {
-            let icon = role.icon;
-            // 检查是否是 Unicode 转义格式（可能包含引号）
-            const unicodeMatch = icon.match(/^"?\\U([0-9A-F]{8})"?$/i);
-            if (unicodeMatch) {
-                try {
-                    const codePoint = parseInt(unicodeMatch[1], 16);
-                    icon = String.fromCodePoint(codePoint);
-                } catch (e) {
-                    // 转换失败，使用默认图标
-                    console.warn('转换 icon Unicode 转义失败:', icon, e);
-                    return '👤';
-                }
-            }
-            return icon;
+        if (role && role.icon && typeof window.csRoleIcon === 'function') {
+            return window.csRoleIcon(role.icon);
         }
     }
-    return '👤'; // 默认图标
+    return ''; // 默认图标（渲染处回退到 SVG）
 }
 
 // 加载批量任务队列列表
@@ -1213,7 +1200,7 @@ function syncBatchQueuesFilterSelect(selectId) {
         const check = document.createElement('span');
         check.className = 'tasks-filter-select-check';
         check.setAttribute('aria-hidden', 'true');
-        check.textContent = '✓';
+        check.innerHTML = (typeof window.csIcon === 'function') ? window.csIcon('check', { size: 11, strokeWidth: 3 }) : '';
         const label = document.createElement('span');
         label.className = 'tasks-filter-select-label';
         label.textContent = opt.textContent;
@@ -1380,7 +1367,7 @@ function syncBatchFormSelect(selectId) {
         const check = document.createElement('span');
         check.className = 'batch-form-select-check';
         check.setAttribute('aria-hidden', 'true');
-        check.textContent = '✓';
+        check.innerHTML = (typeof window.csIcon === 'function') ? window.csIcon('check', { size: 11, strokeWidth: 3 }) : '';
         const label = document.createElement('span');
         label.className = 'batch-form-select-label';
         label.textContent = opt.textContent;
@@ -1633,7 +1620,7 @@ function renderBatchQueues() {
                 <div class="batch-queue-item__inner batch-queue-item__inner--grid">
                     <div class="batch-queue-item__lead">
                         <div class="batch-queue-item__title-row">
-                            <span class="batch-queue-item__role-icon" aria-hidden="true">${escapeHtml(roleIcon)}</span>
+                            <span class="batch-queue-item__role-icon" aria-hidden="true">${roleIcon || ((typeof window.csIcon === 'function') ? window.csIcon('user') : '')}</span>
                             <div class="batch-queue-item__titles">${titleBlock}</div>
                         </div>
                         <p class="batch-queue-item__config">${configLine}${cronPausedNote}</p>
@@ -1831,26 +1818,16 @@ async function showBatchQueueDetail(queueId) {
         let roleLineVal = '';
         if (queue.role && queue.role !== '') {
             let roleName = queue.role;
-            let roleIcon = '\uD83D\uDC64';
+            let roleIcon = (typeof window.csIcon === 'function') ? window.csIcon('user') : '';
             if (Array.isArray(loadedRoles) && loadedRoles.length > 0) {
                 const role = loadedRoles.find(r => r.name === roleName);
-                if (role && role.icon) {
-                    let icon = role.icon;
-                    const unicodeMatch = icon.match(/^"?\\U([0-9A-F]{8})"?$/i);
-                    if (unicodeMatch) {
-                        try {
-                            const codePoint = parseInt(unicodeMatch[1], 16);
-                            icon = String.fromCodePoint(codePoint);
-                        } catch (e) {
-                            // ignore
-                        }
-                    }
-                    roleIcon = icon;
+                if (role && role.icon && typeof window.csRoleIcon === 'function') {
+                    roleIcon = window.csRoleIcon(role.icon);
                 }
             }
-            roleLineVal = roleIcon + ' ' + escapeHtml(roleName);
+            roleLineVal = '<span class="bq-role-icon" aria-hidden="true">' + roleIcon + '</span> ' + escapeHtml(roleName);
         } else {
-            roleLineVal = '\uD83D\uDD35 ' + escapeHtml(_t('batchQueueDetailModal.defaultRole'));
+            roleLineVal = '<span class="bq-role-icon" aria-hidden="true">' + ((typeof window.csIcon === 'function') ? window.csIcon('user') : '') + '</span> ' + escapeHtml(_t('batchQueueDetailModal.defaultRole'));
         }
         const agentModeText = batchQueueAgentModeLabel(queue.agentMode);
         const scheduleModeText = queue.scheduleMode === 'cron' ? _t('batchImportModal.scheduleModeCron') : _t('batchImportModal.scheduleModeManual');

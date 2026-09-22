@@ -11,6 +11,8 @@ import (
 	"strings"
 	"text/template"
 
+	"cyberstrike-ai/internal/security"
+
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
@@ -197,6 +199,7 @@ func (b *PayloadBuilder) BuildBeacon(in PayloadBuilderInput) (*BuildResult, erro
 		ldflags += " -H windowsgui"
 	}
 	cmd := exec.Command("go", "build", "-ldflags", ldflags, "-trimpath", "-o", absBinPath, ".")
+	security.HideConsoleWindow(cmd)
 	cmd.Env = append(os.Environ(),
 		"GOOS="+goos,
 		"GOARCH="+goarch,

@@ -32,10 +32,18 @@
 
         // 项目
         showNewProjectModal: 'project:write',
+        showEmptyProjectModal: 'project:write',
+        showEmptyProjectModalFromImport: 'project:write',
         showNewProjectModalFromChat: 'project:write',
         showNewProjectModalFromChatSidebar: 'project:write',
         showNewProjectModalFromWebshellAi: 'project:write',
         showEditProjectModal: 'project:write',
+        showImportFolderModal: 'project:write',
+        showImportFolderModalForCurrentProject: 'project:write',
+        pickProjectImportFolder: 'project:write',
+        startProjectFolderImport: 'project:write',
+        browseProjectImportFolder: 'project:write',
+        linkProjectFolder: 'project:write',
         saveProjectModal: 'project:write',
         saveProjectSettings: 'project:write',
         archiveCurrentProject: 'project:write',

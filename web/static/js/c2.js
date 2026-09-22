@@ -222,7 +222,7 @@
             const check = document.createElement('span');
             check.className = 'c2-form-select-check';
             check.setAttribute('aria-hidden', 'true');
-            check.textContent = '✓';
+            check.innerHTML = (typeof window.csIcon === 'function') ? window.csIcon('check', { size: 11, strokeWidth: 3 }) : '';
             const label = document.createElement('span');
             label.className = 'c2-form-select-label';
             label.textContent = opt.textContent;
@@ -967,8 +967,8 @@
                 </div>
                 <div class="c2-listener-card-actions">
                     ${l.status === 'stopped'
-                        ? `<button type="button" class="btn-primary btn-sm" data-require-permission="c2:write" data-c2-action="listener-start" data-c2-id="${escapeAttr(l.id)}">▶ ${escapeHtml(c2t('c2.listeners.start'))}</button>`
-                        : `<button type="button" class="btn-secondary btn-sm" data-require-permission="c2:write" data-c2-action="listener-stop" data-c2-id="${escapeAttr(l.id)}">⏹ ${escapeHtml(c2t('c2.listeners.stop'))}</button>`
+                        ? `<button type="button" class="btn-primary btn-sm c2-btn-with-icon" data-require-permission="c2:write" data-c2-action="listener-start" data-c2-id="${escapeAttr(l.id)}">${(typeof window.csIcon === 'function') ? window.csIcon('play', { size: 12 }) : ''} ${escapeHtml(c2t('c2.listeners.start'))}</button>`
+                        : `<button type="button" class="btn-secondary btn-sm c2-btn-with-icon" data-require-permission="c2:write" data-c2-action="listener-stop" data-c2-id="${escapeAttr(l.id)}">${(typeof window.csIcon === 'function') ? window.csIcon('stop-square', { size: 12 }) : ''} ${escapeHtml(c2t('c2.listeners.stop'))}</button>`
                     }
                     <button type="button" class="btn-secondary btn-sm" data-require-permission="c2:write" data-c2-action="listener-edit" data-c2-id="${escapeAttr(l.id)}">${escapeHtml(c2t('c2.listeners.edit'))}</button>
                     <button type="button" class="btn-danger btn-sm" data-require-permission="c2:delete" data-c2-action="listener-delete" data-c2-id="${escapeAttr(l.id)}">${escapeHtml(c2t('c2.listeners.delete'))}</button>
@@ -1675,7 +1675,7 @@
             if (termContainer) {
                 termContainer.innerHTML =
                     '<div style="padding:24px;color:#94a3b8;text-align:center;line-height:1.8;">' +
-                    '<div style="font-size:32px;margin-bottom:12px;">📡</div>' +
+                    '<div style="margin-bottom:12px;color:var(--text-muted);display:inline-flex">' + ((typeof window.csIcon==='function')?window.csIcon('satellite',{size:32,strokeWidth:1.4}):'') + '</div>' +
                     '<div style="font-size:14px;font-weight:600;color:#e2e8f0;margin-bottom:8px;">' + escapeHtml(c2t('c2.sessions.curlBeaconTitle')) + '</div>' +
                     '<div style="font-size:12px;">' + c2t('c2.sessions.curlBeaconBody').split('\n').map(function (ln) { return escapeHtml(ln); }).join('<br>') + '</div>' +
                     '</div>';
@@ -3905,7 +3905,7 @@
                 if (result) {
                     result.innerHTML = `
                         <div class="c2-build-success">
-                            <div>✓ ${escapeHtml(c2t('c2.payloads.buildSuccessTitle'))}</div>
+                            <div style="display:inline-flex;align-items:center;gap:6px">${(typeof window.csIcon === 'function') ? window.csIcon('check-circle', {}) : ''} ${escapeHtml(c2t('c2.payloads.buildSuccessTitle'))}</div>
                             <div>${escapeHtml(c2t('c2.payloads.buildMetaOsArch', { os: data.payload?.os, arch: data.payload?.arch }))}</div>
                             <div>${escapeHtml(c2t('c2.payloads.buildSize', { bytes: data.payload?.size_bytes }))}</div>
                             <button type="button" data-c2-action="payload-download" data-c2-id="${escapeAttr(data.payload?.download_path?.split('/').pop() || '')}"

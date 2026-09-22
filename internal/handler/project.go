@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"cyberstrike-ai/internal/attackchain"
+	"cyberstrike-ai/internal/audit"
+	"cyberstrike-ai/internal/config"
 	"cyberstrike-ai/internal/database"
 	"cyberstrike-ai/internal/project"
 	"cyberstrike-ai/internal/security"
@@ -29,11 +31,18 @@ func clampProjectDescription(s string) string {
 type ProjectHandler struct {
 	db     *database.DB
 	logger *zap.Logger
+	audit  *audit.Service
+	config *config.Config
 }
 
 // NewProjectHandler 创建项目管理处理器。
 func NewProjectHandler(db *database.DB, logger *zap.Logger) *ProjectHandler {
 	return &ProjectHandler{db: db, logger: logger}
+}
+
+// SetAudit wires platform audit logging.
+func (h *ProjectHandler) SetAudit(s *audit.Service) {
+	h.audit = s
 }
 
 type createProjectRequest struct {

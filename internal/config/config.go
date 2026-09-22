@@ -48,6 +48,11 @@ type Config struct {
 	MultiAgent  MultiAgentConfig      `yaml:"multi_agent,omitempty" json:"multi_agent,omitempty"`
 	Project     ProjectConfig         `yaml:"project,omitempty" json:"project,omitempty"`
 	Vision      VisionConfig          `yaml:"vision,omitempty" json:"vision,omitempty"`
+
+	// 桌面端（cmd/desktop）进程内启动时注入的运行时开关：不落盘、不随配置 JSON 接口
+	// 序列化（DesktopBootstrapToken 为每进程一次性令牌，仅由桌面窗口持有）。
+	DesktopMode           bool   `yaml:"-" json:"-"`
+	DesktopBootstrapToken string `yaml:"-" json:"-"`
 }
 
 type EnsureLocalConfigResult struct {
@@ -1301,7 +1306,14 @@ func normalizeHitlModeForPrompt(mode string) string {
 }
 
 type AuthConfig struct {
-	SessionDurationHours int `yaml:"session_duration_hours" json:"session_duration_hours"`
+	// Enabled 为 nil 或 true 时启用登录鉴权；显式 false 时所有 API 以内置管理员身份放行（仅限本地可信部署）。
+	Enabled              *bool `yaml:"enabled,omitempty" json:"enabled,omitempty"`
+	SessionDurationHours int   `yaml:"session_duration_hours" json:"session_duration_hours"`
+}
+
+// IsEnabled 缺省视为启用认证，保持既有行为。
+func (a AuthConfig) IsEnabled() bool {
+	return a.Enabled == nil || *a.Enabled
 }
 
 // MonitorConfig MCP 状态监控（tool_executions）保留策略。

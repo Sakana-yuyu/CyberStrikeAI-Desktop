@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"crypto/subtle"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -45,6 +47,81 @@ type loginRequest struct {
 type changePasswordRequest struct {
 	OldPassword string `json:"oldPassword"`
 	NewPassword string `json:"newPassword"`
+}
+
+type desktopSessionRequest struct {
+	DesktopToken string `json:"desktop_token" binding:"required"`
+}
+
+// DesktopSession POST /api/auth/desktop-session
+// 桌面端专用：用 cmd/desktop 启动时生成的一次性引导令牌换取普通会话，
+// 让打包后的桌面窗口跳过登录页直接进入应用。
+// 三重限制：仅在桌面模式注册路由、令牌常数时间比对、请求必须来自回环地址。
+func (h *AuthHandler) DesktopSession(c *gin.Context) {
+	if !h.config.DesktopMode || strings.TrimSpace(h.config.DesktopBootstrapToken) == "" {
+		c.JSON(http.StatusNotFound, gin.H{"error": "桌面端未启用"})
+		return
+	}
+	if !isLoopbackClientIP(c.ClientIP()) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "仅允许本机桌面窗口使用"})
+		return
+	}
+	var req desktopSessionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "缺少 desktop_token"})
+		return
+	}
+	if subtle.ConstantTimeCompare([]byte(req.DesktopToken), []byte(h.config.DesktopBootstrapToken)) != 1 {
+		if h.audit != nil {
+			h.audit.Record(c, audit.Entry{
+				Level:    "warn",
+				Category: "auth",
+				Action:   "desktop-session",
+				Result:   "failure",
+				Message:  "桌面端引导令牌校验失败",
+				Actor:    "admin",
+			})
+		}
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "引导令牌无效"})
+		return
+	}
+
+	token, expiresAt, err := h.manager.IssueLocalDesktopSession("admin")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	session, _ := h.manager.ValidateToken(token)
+	if h.audit != nil {
+		h.audit.RecordOK(c, "auth", "desktop-session", "桌面端自动登录", "user", session.UserID, map[string]interface{}{
+			"expires_at": expiresAt.UTC().Format(time.RFC3339),
+		})
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"token":               token,
+		"expires_at":          expiresAt.UTC().Format(time.RFC3339),
+		"session_duration_hr": h.manager.SessionDurationHours(),
+		"user": gin.H{
+			"id":           session.UserID,
+			"username":     session.Username,
+			"display_name": session.DisplayName,
+		},
+		"roles":             session.Roles,
+		"permissions":       permissionKeys(session.Permissions),
+		"permission_scopes": session.PermissionScopes,
+		"scope":             session.Scope,
+		"auth_disabled":     h.manager.Disabled(),
+	})
+}
+
+// isLoopbackClientIP 判定请求是否来自本机回环地址
+func isLoopbackClientIP(ip string) bool {
+	ip = strings.TrimSpace(ip)
+	if ip == "" {
+		return false
+	}
+	parsed := net.ParseIP(ip)
+	return parsed != nil && parsed.IsLoopback()
 }
 
 // Login verifies password and returns a session token.
@@ -99,6 +176,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		"permissions":       permissionKeys(session.Permissions),
 		"permission_scopes": session.PermissionScopes,
 		"scope":             session.Scope,
+		"auth_disabled":     h.manager.Disabled(),
 	})
 }
 
@@ -223,6 +301,7 @@ func (h *AuthHandler) Validate(c *gin.Context) {
 		"permissions":       permissionKeys(session.Permissions),
 		"permission_scopes": session.PermissionScopes,
 		"scope":             session.Scope,
+		"auth_disabled":     h.manager.Disabled(),
 	})
 }
 

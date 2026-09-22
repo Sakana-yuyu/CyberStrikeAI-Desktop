@@ -806,7 +806,7 @@ function syncAuditCustomSelect(selectId) {
         var check = document.createElement('span');
         check.className = 'audit-custom-select-check';
         check.setAttribute('aria-hidden', 'true');
-        check.textContent = '✓';
+        check.innerHTML = (typeof window.csIcon === 'function') ? window.csIcon('check', { size: 11, strokeWidth: 3 }) : '';
         var label = document.createElement('span');
         label.className = 'audit-custom-select-label';
         label.textContent = opt.textContent;

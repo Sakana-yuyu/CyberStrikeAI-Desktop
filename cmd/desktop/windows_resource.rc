@@ -1,0 +1,29 @@
+// Windows 资源：应用图标（资源 ID 1，资源管理器/任务栏与 WebView2 窗口共用）与版本信息。
+// 由 build-desktop.sh 调用 windres 编译为 resource_windows_amd64.syso 后链接进 exe。
+1 ICON "icon.ico"
+
+1 VERSIONINFO
+FILEVERSION     1,7,19,0
+PRODUCTVERSION  1,7,19,0
+FILEOS          0x40004
+FILETYPE        0x1
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904b0"
+        BEGIN
+            VALUE "CompanyName", "CyberStrikeAI Project"
+            VALUE "FileDescription", "CyberStrikeAI Desktop"
+            VALUE "FileVersion", "v1.7.19"
+            VALUE "InternalName", "CyberStrikeAI-Desktop"
+            VALUE "LegalCopyright", "Copyright (C) CyberStrikeAI Project"
+            VALUE "OriginalFilename", "CyberStrikeAI-Desktop.exe"
+            VALUE "ProductName", "CyberStrikeAI"
+            VALUE "ProductVersion", "v1.7.19"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x0409, 1200
+    END
+END

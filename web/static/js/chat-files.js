@@ -83,7 +83,7 @@ function syncChatFilesFilterSelect(selectId) {
         const check = document.createElement('span');
         check.className = 'chat-files-filter-select-check';
         check.setAttribute('aria-hidden', 'true');
-        check.textContent = '✓';
+        check.innerHTML = (typeof window.csIcon === 'function') ? window.csIcon('check', { size: 11, strokeWidth: 3 }) : '';
         const label = document.createElement('span');
         label.className = 'chat-files-filter-select-label';
         label.textContent = opt.textContent;

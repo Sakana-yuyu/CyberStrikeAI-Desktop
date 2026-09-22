@@ -55,7 +55,7 @@ function syncRoleModalSelect(selectId) {
         const check = document.createElement('span');
         check.className = 'role-form-select-check';
         check.setAttribute('aria-hidden', 'true');
-        check.textContent = '✓';
+        check.innerHTML = (typeof window.csIcon === 'function') ? window.csIcon('check', { size: 11, strokeWidth: 3 }) : '';
         const label = document.createElement('span');
         label.className = 'role-form-select-label';
         label.textContent = opt.textContent;
@@ -358,23 +358,10 @@ function updateRoleSelectorDisplay() {
     }
 
     if (selectedRole) {
-        // 使用配置中的图标，如果没有则使用默认图标
-        let icon = selectedRole.icon || '🔵';
-        // 如果 icon 是 Unicode 转义格式（\U0001F3C6），需要转换为 emoji
-        if (icon && typeof icon === 'string') {
-            const unicodeMatch = icon.match(/^"?\\U([0-9A-F]{8})"?$/i);
-            if (unicodeMatch) {
-                try {
-                    const codePoint = parseInt(unicodeMatch[1], 16);
-                    icon = String.fromCodePoint(codePoint);
-                } catch (e) {
-                    // 如果转换失败，使用默认图标
-                    console.warn('转换 icon Unicode 转义失败:', icon, e);
-                    icon = '🔵';
-                }
-            }
-        }
-        roleSelectorIcon.textContent = icon;
+        // 使用配置中的图标；emoji/Unicode 转义统一映射为 SVG，未配置则用默认图标
+        roleSelectorIcon.innerHTML = (typeof window.csRoleIcon === 'function')
+            ? window.csRoleIcon(selectedRole.icon)
+            : '';
         const isDefaultRole = selectedRole.name === '默认' || !selectedRole.name;
         const displayName = isDefaultRole && typeof window.t === 'function'
             ? window.t('chat.defaultRole') : (selectedRole.name || (typeof window.t === 'function' ? window.t('chat.defaultRole') : '默认'));
@@ -384,7 +371,7 @@ function updateRoleSelectorDisplay() {
     } else {
         // 默认角色
         roleSelectorText.setAttribute('data-i18n-skip-text', 'false');
-        roleSelectorIcon.textContent = '🔵';
+        roleSelectorIcon.innerHTML = (typeof window.csIcon === 'function') ? window.csIcon('user') : '';
         roleSelectorText.textContent = typeof window.t === 'function' ? window.t('chat.defaultRole') : '默认';
     }
 }
@@ -397,27 +384,9 @@ function renderRoleSelectionSidebar() {
     // 清空列表
     roleList.innerHTML = '';
 
-    // 根据角色配置获取图标，如果没有配置则使用默认图标
+    // 根据角色配置获取图标：emoji/Unicode 转义统一映射为 SVG；未配置则用默认图标
     function getRoleIcon(role) {
-        if (role.icon) {
-            // 如果 icon 是 Unicode 转义格式（\U0001F3C6），需要转换为 emoji
-            let icon = role.icon;
-            // 检查是否是 Unicode 转义格式（可能包含引号）
-            const unicodeMatch = icon.match(/^"?\\U([0-9A-F]{8})"?$/i);
-            if (unicodeMatch) {
-                try {
-                    const codePoint = parseInt(unicodeMatch[1], 16);
-                    icon = String.fromCodePoint(codePoint);
-                } catch (e) {
-                    // 如果转换失败，使用原值
-                    console.warn('转换 icon Unicode 转义失败:', icon, e);
-                }
-            }
-            return icon;
-        }
-        // 如果没有配置图标，根据角色名称的首字符生成默认图标
-        // 使用一些通用的默认图标
-        return '👤';
+        return (typeof window.csRoleIcon === 'function') ? window.csRoleIcon(role.icon) : '';
     }
     
     // 对角色进行排序：默认角色第一个，其他按名称排序
@@ -459,7 +428,7 @@ function renderRoleSelectionSidebar() {
                 <div class="role-selection-item-name-main">${escapeHtml(role.name)}</div>
                 <div class="role-selection-item-description-main">${escapeHtml(description)}</div>
             </div>
-            ${isSelected ? '<div class="role-selection-checkmark-main">✓</div>' : ''}
+            ${isSelected ? '<div class="role-selection-checkmark-main">' + ((typeof window.csIcon === 'function') ? window.csIcon('check', { size: 12, strokeWidth: 3 }) : '') + '</div>' : ''}
         `;
         roleList.appendChild(roleItem);
     });
@@ -604,22 +573,8 @@ function renderRolesList() {
     
     rolesList.innerHTML = sortedRoles.map(role => {
         const plainDesc = rolePlainDescription(role);
-        // 获取角色图标，如果是Unicode转义格式则转换为emoji
-        let roleIcon = role.icon || '👤';
-        if (roleIcon && typeof roleIcon === 'string') {
-            // 检查是否是 Unicode 转义格式（可能包含引号）
-            const unicodeMatch = roleIcon.match(/^"?\\U([0-9A-F]{8})"?$/i);
-            if (unicodeMatch) {
-                try {
-                    const codePoint = parseInt(unicodeMatch[1], 16);
-                    roleIcon = String.fromCodePoint(codePoint);
-                } catch (e) {
-                    // 如果转换失败，使用默认图标
-                    console.warn('转换 icon Unicode 转义失败:', roleIcon, e);
-                    roleIcon = '👤';
-                }
-            }
-        }
+        // 角色图标统一走 csRoleIcon：emoji/Unicode 转义映射为 SVG，未配置用默认图标
+        const roleIcon = (typeof window.csRoleIcon === 'function') ? window.csRoleIcon(role.icon) : '';
 
         // 获取工具列表显示
         let toolsDisplay = '';
@@ -1195,12 +1150,12 @@ function updateRoleToolsStats() {
     if (roleUsesAllTools) {
         statsEl.innerHTML = `
             <div class="role-tools-stats-row">
-                <span title="${escapeHtml(_t('roleModal.statsPageLinkedTitle'))}">✅ ${_t('roleModal.statsPageLinked', { current: pageChecked, total: pageTotal })}</span>
+                <span title="${escapeHtml(_t('roleModal.statsPageLinkedTitle'))}">${(typeof window.csIcon === 'function') ? window.csIcon('check-circle') : ''} ${_t('roleModal.statsPageLinked', { current: pageChecked, total: pageTotal })}</span>
             </div>
             <div class="role-tools-stats-row">
-                <span title="${escapeHtml(_t('roleModal.statsRoleUsesAllTitle'))}">📊 ${_t('roleModal.statsRoleUsesAll', { mcpOn: mcpOnMax, all: grandAll })}</span>
+                <span title="${escapeHtml(_t('roleModal.statsRoleUsesAllTitle'))}">${(typeof window.csIcon === 'function') ? window.csIcon('chart-bar') : ''} ${_t('roleModal.statsRoleUsesAll', { mcpOn: mcpOnMax, all: grandAll })}</span>
             </div>
-            <div class="role-tools-stats-hint">📋 ${escapeHtml(scopeLine)}</div>
+            <div class="role-tools-stats-hint">${(typeof window.csIcon === 'function') ? window.csIcon('clipboard') : ''} ${escapeHtml(scopeLine)}</div>
         `;
         return;
     }
@@ -1228,15 +1183,15 @@ function updateRoleToolsStats() {
 
     const roleRow =
         mcpOnMax > 0
-            ? `<span title="${escapeHtml(_t('roleModal.statsRoleLinkedTitle'))}">📊 ${_t('roleModal.statsRoleLinked', { current: roleLinked, max: mcpOnMax })}</span>`
-            : `<span title="${escapeHtml(_t('roleModal.statsRoleLinkedNoMaxTitle'))}">📊 ${_t('roleModal.statsRoleLinkedNoMax', { current: roleLinked })}</span>`;
+            ? `<span title="${escapeHtml(_t('roleModal.statsRoleLinkedTitle'))}">${(typeof window.csIcon === 'function') ? window.csIcon('chart-bar') : ''} ${_t('roleModal.statsRoleLinked', { current: roleLinked, max: mcpOnMax })}</span>`
+            : `<span title="${escapeHtml(_t('roleModal.statsRoleLinkedNoMaxTitle'))}">${(typeof window.csIcon === 'function') ? window.csIcon('chart-bar') : ''} ${_t('roleModal.statsRoleLinkedNoMax', { current: roleLinked })}</span>`;
 
     statsEl.innerHTML = `
         <div class="role-tools-stats-row">
-            <span title="${escapeHtml(_t('roleModal.statsPageLinkedTitle'))}">✅ ${_t('roleModal.statsPageLinked', { current: pageChecked, total: pageTotal })}</span>
+            <span title="${escapeHtml(_t('roleModal.statsPageLinkedTitle'))}">${(typeof window.csIcon === 'function') ? window.csIcon('check-circle') : ''} ${_t('roleModal.statsPageLinked', { current: pageChecked, total: pageTotal })}</span>
         </div>
         <div class="role-tools-stats-row">${roleRow}</div>
-        <div class="role-tools-stats-hint">📋 ${escapeHtml(scopeLine)}</div>
+        <div class="role-tools-stats-hint">${(typeof window.csIcon === 'function') ? window.csIcon('clipboard') : ''} ${escapeHtml(scopeLine)}</div>
     `;
 }
 
@@ -1289,6 +1244,74 @@ function setSelectedRoleTools(selectedToolKeys) {
     updateRoleToolsStats();
 }
 
+// ===== 角色图标选择器（存图标名，渲染统一走 csRoleIcon）=====
+var ROLE_ICON_CHOICES = [
+    'user', 'robot', 'brain', 'shield', 'target', 'search', 'microscope', 'flask',
+    'zap', 'star', 'trophy', 'bug', 'fingerprint', 'globe', 'monitor', 'database',
+    'folder', 'file', 'memo', 'book', 'scroll', 'clipboard', 'key', 'lock',
+    'link', 'compass', 'chat', 'pin', 'bulb', 'wrench', 'settings', 'terminal',
+    'gauge', 'satellite', 'workflow', 'eye', 'flag', 'flame'
+];
+var roleIconGridBuilt = false;
+
+function ensureRoleIconGrid() {
+    if (roleIconGridBuilt) return;
+    const grid = document.getElementById('role-icon-grid');
+    if (!grid || typeof window.csIcon !== 'function') return;
+    grid.innerHTML = ROLE_ICON_CHOICES.map(name =>
+        `<button type="button" class="role-icon-cell" role="gridcell" data-icon-name="${name}" title="${name}" onclick="pickRoleIcon('${name}')">${window.csIcon(name, { size: 17 })}</button>`
+    ).join('');
+    roleIconGridBuilt = true;
+}
+
+function resolveRoleIconName(raw) {
+    if (typeof window.csRoleIconName === 'function') {
+        return window.csRoleIconName(raw) || 'user';
+    }
+    return raw || 'user';
+}
+
+function setRoleIconValue(raw) {
+    const hidden = document.getElementById('role-icon');
+    const glyph = document.getElementById('role-icon-glyph');
+    const nameEl = document.getElementById('role-icon-name');
+    const name = resolveRoleIconName(raw);
+    if (hidden) hidden.value = name;
+    if (glyph) glyph.innerHTML = (typeof window.csIcon === 'function') ? window.csIcon(name, { size: 16 }) : '';
+    if (nameEl) nameEl.textContent = name;
+    const grid = document.getElementById('role-icon-grid');
+    if (grid) {
+        grid.querySelectorAll('.role-icon-cell').forEach(c =>
+            c.classList.toggle('is-selected', c.getAttribute('data-icon-name') === name));
+    }
+}
+
+function pickRoleIcon(name) {
+    setRoleIconValue(name);
+    toggleRoleIconPicker(true);
+}
+
+function toggleRoleIconPicker(forceClose) {
+    const grid = document.getElementById('role-icon-grid');
+    const btn = document.getElementById('role-icon-current');
+    if (!grid || !btn) return;
+    ensureRoleIconGrid();
+    const open = forceClose === true ? false : grid.hidden;
+    grid.hidden = !open;
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
+document.addEventListener('click', function (e) {
+    const picker = document.getElementById('role-icon-picker');
+    const grid = document.getElementById('role-icon-grid');
+    if (picker && grid && !grid.hidden && !picker.contains(e.target)) {
+        toggleRoleIconPicker(true);
+    }
+});
+
+window.toggleRoleIconPicker = toggleRoleIconPicker;
+window.pickRoleIcon = pickRoleIcon;
+
 // 显示添加角色模态框
 async function showAddRoleModal() {
     if (typeof requirePermission === 'function' && !requirePermission('roles:write')) return;
@@ -1299,7 +1322,7 @@ async function showAddRoleModal() {
     document.getElementById('role-name').value = '';
     document.getElementById('role-name').disabled = false;
     document.getElementById('role-description').value = '';
-    document.getElementById('role-icon').value = '';
+    setRoleIconValue('');
     document.getElementById('role-user-prompt').value = '';
     document.getElementById('role-enabled').checked = true;
     if (typeof loadWorkflowOptionsForRoleModal === 'function') {
@@ -1382,18 +1405,8 @@ async function editRole(roleName) {
     document.getElementById('role-name').value = role.name;
     document.getElementById('role-name').disabled = true; // 编辑时不允许修改名称
     document.getElementById('role-description').value = role.description || '';
-    // 处理icon字段：如果是Unicode转义格式，转换为emoji；否则直接使用
-    let iconValue = role.icon || '';
-    if (iconValue && iconValue.startsWith('\\U')) {
-        // 转换Unicode转义格式（如 \U0001F3C6）为emoji
-        try {
-            const codePoint = parseInt(iconValue.substring(2), 16);
-            iconValue = String.fromCodePoint(codePoint);
-        } catch (e) {
-            // 如果转换失败，使用原值
-        }
-    }
-    document.getElementById('role-icon').value = iconValue;
+    // icon 字段统一归一化为图标名（emoji/Unicode 转义会映射为对应图标名）
+    setRoleIconValue(role.icon || '');
     document.getElementById('role-user-prompt').value = role.user_prompt || '';
     document.getElementById('role-enabled').checked = role.enabled !== false;
     if (typeof loadWorkflowOptionsForRoleModal === 'function') {
