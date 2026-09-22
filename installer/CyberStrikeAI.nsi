@@ -40,7 +40,6 @@ SetCompressor /SOLID lzma
 !define MUI_FINISHPAGE_RUN_TEXT "启动 CyberStrikeAI"
 !define MUI_FINISHPAGE_TITLE_3LINES
 
-!insertmacro MUI_PAGE_LICENSE "${STAGE}\LICENSE"
 !insertmacro MUI_PAGE_DIRECTORY
 !insertmacro MUI_PAGE_INSTFILES
 !insertmacro MUI_PAGE_FINISH

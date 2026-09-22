@@ -9822,6 +9822,11 @@ function getConversationListEmptyHtml() {
 function renderConversationsPagination(visibleCount) {
     const el = document.getElementById('conversations-pagination');
     if (!el) return;
+    if (document.documentElement.classList.contains('agent-shell')) {
+        el.innerHTML = '';
+        el.hidden = true;
+        return;
+    }
     const { page, pageSize, total } = conversationsPagination;
     if (typeof visibleCount === 'number') {
         conversationsPagination.visibleCount = visibleCount;

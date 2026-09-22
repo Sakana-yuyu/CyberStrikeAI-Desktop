@@ -2846,6 +2846,10 @@ html[data-theme="dark"].agent-shell .chat-markdown-chrome-action {
     color: rgba(229, 231, 235, 0.72);
 }
 
+html.agent-shell #conversations-pagination {
+    display: none !important;
+}
+
 html[data-theme="dark"].agent-shell .message-bubble.chat-markdown blockquote,
 html[data-theme="dark"].agent-shell .message-bubble.chat-markdown .table-wrapper,
 html[data-theme="dark"].agent-shell .message-bubble.chat-markdown table th,
