@@ -1,0 +1,25 @@
+#page-api-keys { padding: 24px; }
+#page-api-keys .page-header { margin-bottom: 20px; }
+#page-api-keys .page-header p, #api-keys-count, .api-keys-table small { color: var(--text-secondary, #94a3b8); }
+.api-keys-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 16px 0; }
+.api-keys-table-wrap { overflow-x: auto; border: 1px solid var(--border-color, #334155); border-radius: 12px; }
+.api-keys-table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; }
+.api-keys-table th, .api-keys-table td { padding: 15px 12px; border-bottom: 1px solid var(--border-color, #334155); vertical-align: middle; }
+.api-keys-table th { white-space: nowrap; color: var(--text-secondary, #94a3b8); }
+.api-keys-table td { min-width: 90px; overflow-wrap: anywhere; }
+.api-keys-table td:first-child { min-width: 30px; }
+.api-keys-table small { display: block; margin-top: 6px; }
+.api-keys-table .api-keys-url { min-width: 170px; max-width: 260px; }
+.api-keys-row-actions { display: flex; flex-wrap: wrap; gap: 6px; min-width: 160px; }
+.api-keys-row-actions button { font-size: 12px; padding: 6px 9px; }
+.api-keys-default { display: inline-block; margin-left: 7px; color: var(--primary-color, #60a5fa); font-size: 11px; }
+.api-keys-dialog { width: min(520px, calc(100vw - 32px)); max-height: 90vh; overflow-y: auto; margin: auto; padding: 24px; border: 1px solid var(--border-color, #334155); border-radius: 14px; background: var(--bg-secondary, #1e293b); color: var(--text-primary, #e2e8f0); }
+.api-keys-dialog::backdrop { background: rgb(0 0 0 / 60%); }
+.api-keys-dialog h3 { margin: 0 0 20px; }
+.api-keys-dialog .form-group { margin-bottom: 14px; }
+.api-keys-dialog label { display: block; margin-bottom: 6px; }
+.api-keys-dialog input, .api-keys-dialog select { width: 100%; box-sizing: border-box; }
+#api-keys-message, #api-keys-form-message { min-height: 1.4em; overflow-wrap: anywhere; }
+#page-api-keys button:disabled { opacity: .5; cursor: not-allowed; }
+#page-api-keys input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; }
+@media (max-width: 640px) { #page-api-keys { padding: 14px; } .api-keys-toolbar button { flex: 1 1 auto; } }
