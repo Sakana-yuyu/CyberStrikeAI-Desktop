@@ -7799,6 +7799,103 @@ html[data-theme="dark"] .login-card .login-submit:disabled {
     word-break: break-word;
 }
 
+/* 流式输出：正在写入的文本末尾显示闪烁光标，仅保留最后一条流式条目的光标 */
+@keyframes timeline-stream-caret {
+    0%, 49% {
+        opacity: 1;
+    }
+    50%, 100% {
+        opacity: 0;
+    }
+}
+
+.progress-container.is-streaming .timeline-item-content.timeline-stream-live::after,
+.process-details-container.is-streaming .timeline-item-content.timeline-stream-live::after {
+    content: '';
+    display: inline-block;
+    width: 2px;
+    height: 1em;
+    margin-left: 2px;
+    vertical-align: -0.12em;
+    border-radius: 1px;
+    background: var(--accent-color);
+    animation: timeline-stream-caret 1.06s steps(1) infinite;
+}
+
+.progress-container.is-streaming .timeline-item:has(~ .timeline-item) .timeline-item-content.timeline-stream-live::after,
+.process-details-container.is-streaming .timeline-item:has(~ .timeline-item) .timeline-item-content.timeline-stream-live::after {
+    content: none;
+}
+
+/* 流式阶段新条目入场：轻微上浮渐显，避免整条闪现的突兀感 */
+@keyframes timeline-item-in {
+    from {
+        opacity: 0;
+        transform: translateY(5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.progress-container.is-streaming .timeline-item,
+.process-details-container.is-streaming .timeline-item {
+    animation: timeline-item-in 0.24s ease-out;
+}
+
+/* 执行中状态行前置旋转指示环 */
+@keyframes timeline-stage-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.progress-container.is-streaming .progress-stage::before {
+    content: '';
+    display: inline-block;
+    width: 11px;
+    height: 11px;
+    margin-right: 7px;
+    vertical-align: -1px;
+    border: 2px solid color-mix(in srgb, var(--accent-color) 26%, transparent);
+    border-top-color: var(--accent-color);
+    border-radius: 50%;
+    animation: timeline-stage-spin 0.8s linear infinite;
+}
+
+/* 时间线节点：运行中的工具调用，轨道圆点脉冲外扩提示仍在执行 */
+@keyframes timeline-dot-pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(11, 108, 255, 0.42);
+    }
+    70% {
+        box-shadow: 0 0 0 6px rgba(11, 108, 255, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(11, 108, 255, 0);
+    }
+}
+
+.message.assistant-turn-with-process .timeline-item-tool_call.tool-call-running::before,
+.message.progress-message .timeline-item-tool_call.tool-call-running::before {
+    animation: timeline-dot-pulse 1.6s ease-out infinite;
+}
+
+/* 聊天内时间线：工具调用是可点开的操作行，标题权重略高于普通事件 */
+.message.assistant-turn-with-process .timeline-item-tool_call .timeline-item-title,
+.message.progress-message .timeline-item-tool_call .timeline-item-title {
+    color: var(--text-primary);
+}
+
+/* 模型内部思考/推理链弱化一档，与「助手输出」正文区分层级 */
+.message.assistant-turn-with-process .timeline-item-thinking:not([data-response-stream-placeholder]) .timeline-item-content,
+.message.assistant-turn-with-process .timeline-item-reasoning_chain .timeline-item-content,
+.message.progress-message .timeline-item-thinking:not([data-response-stream-placeholder]) .timeline-item-content,
+.message.progress-message .timeline-item-reasoning_chain .timeline-item-content {
+    color: var(--text-muted);
+}
+
 /* 过程详情纯文本：避免长 URL/代码/表格撑破时间线条目 */
 .timeline-item-content .timeline-plain-text {
     margin: 0;
@@ -46549,7 +46646,17 @@ html[data-theme="dark"] .hitl-inline-approval.hitl-inline-approval--merged {
 @media (prefers-reduced-motion: reduce) {
     .project-task-status--running,
     .turn-process-status-dot.is-running,
-    .hitl-codex-spinner {
+    .hitl-codex-spinner,
+    .progress-container.is-streaming .timeline-item,
+    .process-details-container.is-streaming .timeline-item,
+    .progress-container.is-streaming .progress-stage::before,
+    .message.assistant-turn-with-process .timeline-item-tool_call.tool-call-running::before,
+    .message.progress-message .timeline-item-tool_call.tool-call-running::before {
+        animation: none;
+    }
+
+    /* 光标退化为静止竖线，仍指示可写位置但不闪烁 */
+    .timeline-item-content.timeline-stream-live::after {
         animation: none;
     }
 }

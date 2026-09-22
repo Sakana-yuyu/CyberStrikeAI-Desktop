@@ -1,11 +1,14 @@
 package handler
 
 import (
+	"bytes"
+	"encoding/base64"
 	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"unicode/utf8"
 
 	"cyberstrike-ai/internal/config"
 	"cyberstrike-ai/internal/database"
@@ -22,6 +25,7 @@ import (
 const (
 	linkFolderMaxPathRunes = 4096
 	linkFolderFactKey      = "workspace/local_root"
+	linkedFileMaxBytes     = 1 << 20 // 1 MiB view cap
 )
 
 type linkFolderResponse struct {
@@ -187,4 +191,350 @@ func (h *ProjectHandler) PickFolder(c *gin.Context) {
 // SetConfig 注入运行时配置（桌面模式判定用）
 func (h *ProjectHandler) SetConfig(cfg *config.Config) {
 	h.config = cfg
+}
+
+const (
+	linkedTreeMaxEntries    = 400
+	linkFolderSummaryPrefix = "本地项目文件夹："
+)
+
+var linkedTreeSkipNames = map[string]struct{}{
+	".git":         {},
+	"node_modules": {},
+	"__pycache__":  {},
+}
+
+type linkedTreeEntry struct {
+	Name string `json:"name"`
+	Type string `json:"type"` // dir | file
+}
+
+type linkedTreeResponse struct {
+	Linked    bool              `json:"linked"`
+	RootName  string            `json:"rootName,omitempty"`
+	Path      string            `json:"path,omitempty"`
+	Entries   []linkedTreeEntry `json:"entries,omitempty"`
+	Truncated bool              `json:"truncated,omitempty"`
+}
+
+// linkedLocalRootFromFact 从 workspace/local_root 事实解析本机绝对路径。
+func linkedLocalRootFromFact(f *database.ProjectFact) string {
+	if f == nil {
+		return ""
+	}
+	if strings.HasPrefix(f.Summary, linkFolderSummaryPrefix) {
+		p := strings.TrimSpace(strings.TrimPrefix(f.Summary, linkFolderSummaryPrefix))
+		if p != "" {
+			return p
+		}
+	}
+	// 回退：正文「本地项目根目录：`path`」
+	const marker = "本地项目根目录：`"
+	if i := strings.Index(f.Body, marker); i >= 0 {
+		rest := f.Body[i+len(marker):]
+		if j := strings.IndexByte(rest, '`'); j > 0 {
+			return strings.TrimSpace(rest[:j])
+		}
+	}
+	return ""
+}
+
+// resolveLinkedTreeTarget 将查询相对路径解析到关联根目录内；拒绝越界。
+func resolveLinkedTreeTarget(root, relQuery string) (absTarget, relClean string, err error) {
+	root = filepath.Clean(root)
+	rel := strings.TrimSpace(strings.ReplaceAll(relQuery, "\\", "/"))
+	rel = strings.Trim(rel, "/")
+	if rel == "" || rel == "." {
+		return root, "", nil
+	}
+	for _, seg := range strings.Split(rel, "/") {
+		if seg == "" || seg == "." {
+			continue
+		}
+		if seg == ".." || strings.ContainsAny(seg, `/\`) {
+			return "", "", fmt.Errorf("非法路径")
+		}
+	}
+	absTarget = filepath.Clean(filepath.Join(root, filepath.FromSlash(rel)))
+	relCheck, relErr := filepath.Rel(root, absTarget)
+	if relErr != nil || relCheck == ".." || strings.HasPrefix(relCheck, ".."+string(filepath.Separator)) {
+		return "", "", fmt.Errorf("路径越界")
+	}
+	return absTarget, filepath.ToSlash(relCheck), nil
+}
+
+// ListLinkedTree GET /api/projects/:id/linked-tree?path=
+// 仅列出当前项目关联的本地文件夹（及其子目录），不做任意磁盘浏览。
+func (h *ProjectHandler) ListLinkedTree(c *gin.Context) {
+	projectID := strings.TrimSpace(c.Param("id"))
+	if projectID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "缺少项目 ID"})
+		return
+	}
+	session, sessionOK := security.CurrentSession(c)
+	if !sessionOK {
+		c.JSON(http.StatusForbidden, gin.H{"error": "未登录"})
+		return
+	}
+	if session.Scope != database.RBACScopeAll && !h.db.UserCanAccessResource(session.UserID, session.Scope, "project", projectID) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "无权访问该项目"})
+		return
+	}
+	if _, err := h.db.GetProject(projectID); err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "项目不存在"})
+		return
+	}
+
+	fact, err := h.db.GetProjectFactByKey(projectID, linkFolderFactKey)
+	if err != nil || fact == nil {
+		c.JSON(http.StatusOK, linkedTreeResponse{Linked: false})
+		return
+	}
+	rawRoot := linkedLocalRootFromFact(fact)
+	if rawRoot == "" {
+		c.JSON(http.StatusOK, linkedTreeResponse{Linked: false})
+		return
+	}
+	root, err := normalizeLinkedFolderPath(rawRoot)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "关联路径不可用: " + err.Error()})
+		return
+	}
+
+	target, relClean, err := resolveLinkedTreeTarget(root, c.Query("path"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	st, err := os.Stat(target)
+	if err != nil || !st.IsDir() {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "目录不存在或不可访问"})
+		return
+	}
+
+	entriesRaw, err := os.ReadDir(target)
+	if err != nil {
+		h.logger.Warn("读取关联目录失败", zap.String("path", target), zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "无法读取目录"})
+		return
+	}
+
+	entries := make([]linkedTreeEntry, 0, len(entriesRaw))
+	truncated := false
+	for _, e := range entriesRaw {
+		name := e.Name()
+		if _, skip := linkedTreeSkipNames[name]; skip {
+			continue
+		}
+		typ := "file"
+		if e.IsDir() {
+			typ = "dir"
+		} else if e.Type()&os.ModeSymlink != 0 {
+			if info, infoErr := e.Info(); infoErr == nil && info.IsDir() {
+				typ = "dir"
+			}
+		}
+		entries = append(entries, linkedTreeEntry{Name: name, Type: typ})
+		if len(entries) >= linkedTreeMaxEntries {
+			truncated = true
+			break
+		}
+	}
+
+	rootName := filepath.Base(root)
+	if rootName == "" || rootName == "." || rootName == string(filepath.Separator) {
+		rootName = "project"
+	}
+
+	c.JSON(http.StatusOK, linkedTreeResponse{
+		Linked:    true,
+		RootName:  rootName,
+		Path:      relClean,
+		Entries:   entries,
+		Truncated: truncated,
+	})
+}
+
+type linkedFileResponse struct {
+	Linked      bool   `json:"linked"`
+	Path        string `json:"path,omitempty"`
+	Name        string `json:"name,omitempty"`
+	Size        int64  `json:"size,omitempty"`
+	Kind        string `json:"kind,omitempty"` // text | image | binary | too_large
+	Language    string `json:"language,omitempty"`
+	ContentType string `json:"contentType,omitempty"`
+	Encoding    string `json:"encoding,omitempty"` // utf-8 | base64
+	Content     string `json:"content,omitempty"`
+	Error       string `json:"error,omitempty"`
+}
+
+func linkedFileLanguage(name string) string {
+	ext := strings.ToLower(strings.TrimPrefix(filepath.Ext(name), "."))
+	switch ext {
+	case "htm":
+		return "html"
+	case "yml":
+		return "yaml"
+	case "ts", "tsx", "js", "jsx", "mjs", "cjs", "css", "scss", "less",
+		"go", "json", "md", "markdown", "py", "yaml", "sh", "bash", "zsh",
+		"xml", "vue", "html", "rs", "java", "kt", "c", "h", "cpp", "hpp",
+		"cs", "php", "rb", "sql", "toml", "ini", "conf", "env", "dockerfile",
+		"makefile", "txt", "log", "svg":
+		return ext
+	case "":
+		base := strings.ToLower(filepath.Base(name))
+		if base == "dockerfile" || base == "makefile" || base == "gemfile" {
+			return base
+		}
+		return "plaintext"
+	default:
+		return ext
+	}
+}
+
+func linkedFileKind(name string, data []byte) (kind, contentType string) {
+	ext := strings.ToLower(strings.TrimPrefix(filepath.Ext(name), "."))
+	switch ext {
+	case "png":
+		return "image", "image/png"
+	case "jpg", "jpeg":
+		return "image", "image/jpeg"
+	case "gif":
+		return "image", "image/gif"
+	case "webp":
+		return "image", "image/webp"
+	case "svg":
+		// Prefer image view when it looks like SVG markup.
+		if utf8.Valid(data) && (bytesContainsFold(data, []byte("<svg")) || bytesHasPrefixTrim(data, []byte("<?xml"))) {
+			return "image", "image/svg+xml"
+		}
+		return "text", "image/svg+xml"
+	}
+	if !utf8.Valid(data) || bytes.IndexByte(data, 0) >= 0 {
+		return "binary", "application/octet-stream"
+	}
+	return "text", "text/plain; charset=utf-8"
+}
+
+func bytesContainsFold(haystack, needle []byte) bool {
+	return strings.Contains(strings.ToLower(string(haystack)), strings.ToLower(string(needle)))
+}
+
+func bytesHasPrefixTrim(data, prefix []byte) bool {
+	s := strings.TrimLeft(string(data), " \t\r\n")
+	return strings.HasPrefix(strings.ToLower(s), strings.ToLower(string(prefix)))
+}
+
+func (h *ProjectHandler) resolveLinkedProjectRoot(c *gin.Context, projectID string) (root string, linked bool, done bool) {
+	session, sessionOK := security.CurrentSession(c)
+	if !sessionOK {
+		c.JSON(http.StatusForbidden, gin.H{"error": "未登录"})
+		return "", false, true
+	}
+	if session.Scope != database.RBACScopeAll && !h.db.UserCanAccessResource(session.UserID, session.Scope, "project", projectID) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "无权访问该项目"})
+		return "", false, true
+	}
+	if _, err := h.db.GetProject(projectID); err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "项目不存在"})
+		return "", false, true
+	}
+	fact, err := h.db.GetProjectFactByKey(projectID, linkFolderFactKey)
+	if err != nil || fact == nil {
+		return "", false, false
+	}
+	rawRoot := linkedLocalRootFromFact(fact)
+	if rawRoot == "" {
+		return "", false, false
+	}
+	root, err = normalizeLinkedFolderPath(rawRoot)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "关联路径不可用: " + err.Error()})
+		return "", false, true
+	}
+	return root, true, false
+}
+
+// ReadLinkedFile GET /api/projects/:id/linked-file?path=
+// 仅读取当前项目关联本地文件夹内的文件；拒绝 .. 越界；超过 1MiB 不返回正文。
+func (h *ProjectHandler) ReadLinkedFile(c *gin.Context) {
+	projectID := strings.TrimSpace(c.Param("id"))
+	if projectID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "缺少项目 ID"})
+		return
+	}
+	relQuery := strings.TrimSpace(c.Query("path"))
+	if relQuery == "" || relQuery == "." {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "缺少文件路径"})
+		return
+	}
+
+	root, linked, done := h.resolveLinkedProjectRoot(c, projectID)
+	if done {
+		return
+	}
+	if !linked {
+		c.JSON(http.StatusOK, linkedFileResponse{Linked: false, Error: "项目未关联本地文件夹"})
+		return
+	}
+
+	target, relClean, err := resolveLinkedTreeTarget(root, relQuery)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if relClean == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "请指定文件路径"})
+		return
+	}
+	st, err := os.Stat(target)
+	if err != nil {
+		if os.IsNotExist(err) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "文件不存在"})
+			return
+		}
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无法访问文件"})
+		return
+	}
+	if st.IsDir() {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "路径是目录，不是文件"})
+		return
+	}
+
+	name := filepath.Base(target)
+	resp := linkedFileResponse{
+		Linked:   true,
+		Path:     relClean,
+		Name:     name,
+		Size:     st.Size(),
+		Language: linkedFileLanguage(name),
+	}
+	if st.Size() > linkedFileMaxBytes {
+		resp.Kind = "too_large"
+		resp.Error = "file too large to preview"
+		c.JSON(http.StatusOK, resp)
+		return
+	}
+
+	data, err := os.ReadFile(target)
+	if err != nil {
+		h.logger.Warn("读取关联文件失败", zap.String("path", target), zap.Error(err))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "无法读取文件"})
+		return
+	}
+
+	kind, contentType := linkedFileKind(name, data)
+	resp.Kind = kind
+	resp.ContentType = contentType
+	switch kind {
+	case "image":
+		resp.Encoding = "base64"
+		resp.Content = base64.StdEncoding.EncodeToString(data)
+	case "binary":
+		resp.Error = "binary file"
+	default:
+		resp.Encoding = "utf-8"
+		resp.Content = string(data)
+	}
+	c.JSON(http.StatusOK, resp)
 }

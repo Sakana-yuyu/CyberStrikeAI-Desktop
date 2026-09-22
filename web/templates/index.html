@@ -50,8 +50,8 @@
             }
         })();
     </script>
-    <link rel="stylesheet" href="/static/css/style.css?v=20260923-profile-1">
-    <link rel="stylesheet" href="/static/css/agent-shell.css?v=20260923-adminonly-1">
+    <link rel="stylesheet" href="/static/css/style.css?v=20260923-stream-1">
+    <link rel="stylesheet" href="/static/css/agent-shell.css?v=20260923-chatmd-1">
     <link rel="stylesheet" href="/static/css/tool-guard.css?v=20260907-7">
     <link rel="stylesheet" href="/static/css/chat-plan-progress.css?v=20260813-4">
     <link rel="stylesheet" href="/static/css/c2.css">
@@ -1206,7 +1206,16 @@
                             <div id="agent-chat-embed" class="agent-chat-embed" hidden></div>
                             <div class="agent-chat-topbar">
                                 <h2 id="agent-chat-title" class="agent-chat-title" data-i18n="agentShell.newConversation">新对话</h2>
+                                <button type="button" id="agent-chat-files-toggle" class="agent-chat-files-toggle" aria-pressed="false" aria-expanded="false" aria-controls="agent-chat-files-panel" data-i18n="agentShell.files" data-i18n-attr="aria-label,title" data-i18n-skip-text="true" title="文件" aria-label="文件">
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                        <path d="M4 6.5A2.5 2.5 0 0 1 6.5 4H9l1.8 2H17.5A2.5 2.5 0 0 1 20 8.5v9A2.5 2.5 0 0 1 17.5 20h-11A2.5 2.5 0 0 1 4 17.5v-11z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+                                        <path d="M8 12h8M8 15.5h5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+                                    </svg>
+                                    <span class="agent-chat-files-toggle-label" data-i18n="agentShell.files">文件</span>
+                                </button>
                             </div>
+                            <div class="agent-chat-body">
+                            <div class="agent-chat-main">
                             <!-- 会话顶部栏（只在有会话选中时显示） -->
                             <div id="conversation-header" class="conversation-header" style="display: none;">
                                 <div class="conversation-header-content">
@@ -1220,6 +1229,27 @@
                             </div>
                             <div id="active-tasks-bar" class="active-tasks-bar"></div>
                             <div id="chat-messages" class="chat-messages"></div>
+                            <div id="agent-file-viewer" class="agent-file-viewer" hidden>
+                                <div class="agent-file-viewer-tabbar" data-right-panel-tabbar>
+                                    <div id="agent-file-viewer-tabs" class="agent-file-viewer-tabs" data-right-panel-tab-list role="tablist" aria-label="Open files"></div>
+                                    <div class="agent-file-viewer-more-wrap">
+                                        <button type="button" id="agent-file-viewer-more" class="agent-file-viewer-more" title="更多" aria-label="更多" aria-haspopup="menu" aria-expanded="false" aria-controls="agent-file-viewer-more-menu">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.75"/><circle cx="12" cy="12" r="1.75"/><circle cx="19" cy="12" r="1.75"/></svg>
+                                        </button>
+                                        <div id="agent-file-viewer-more-menu" class="agent-file-viewer-menu" role="menu" hidden>
+                                            <button type="button" class="agent-file-viewer-menu-item" role="menuitem" data-file-menu="close-current" data-i18n="agentShell.fileViewerCloseCurrent">关闭当前</button>
+                                            <button type="button" class="agent-file-viewer-menu-item" role="menuitem" data-file-menu="close-others" data-i18n="agentShell.fileViewerCloseOthers">关闭其他</button>
+                                            <button type="button" class="agent-file-viewer-menu-item" role="menuitem" data-file-menu="close-all" data-i18n="agentShell.fileViewerCloseAll">关闭全部</button>
+                                            <button type="button" class="agent-file-viewer-menu-item" role="menuitem" data-file-menu="copy-path" data-i18n="agentShell.fileViewerCopyPath">复制路径</button>
+                                            <button type="button" class="agent-file-viewer-menu-item" role="menuitem" data-file-menu="reveal-in-tree" data-i18n="agentShell.fileViewerRevealInTree">在文件树中定位</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="agent-file-viewer-bar" data-surface-subheader>
+                                    <div id="agent-file-viewer-crumbs" class="agent-file-viewer-crumbs" aria-label="File path"></div>
+                                </div>
+                                <div id="agent-file-viewer-body" class="agent-file-viewer-body" tabindex="0"></div>
+                            </div>
                             <div id="chat-restore-skeleton" class="chat-restore-skeleton" aria-hidden="true">
                                 <div class="chat-restore-msg chat-restore-msg--user"><span class="cs-skeleton"></span></div>
                                 <div class="chat-restore-msg chat-restore-msg--agent"><span class="cs-skeleton"></span></div>
@@ -1475,6 +1505,14 @@
                                     </div>
                                 </div>
                                 </div>
+                            </div>
+                            </div>
+                            <aside id="agent-chat-files-panel" class="agent-chat-files-panel" hidden data-i18n="agentShell.filesPanelTitle" data-i18n-attr="aria-label" data-i18n-skip-text="true" aria-label="文件">
+                                <div class="agent-chat-files-panel-header" data-surface-subheader>
+                                    <span class="agent-chat-files-panel-title" data-i18n="agentShell.filesPanelTitle">文件</span>
+                                </div>
+                                <div id="agent-chat-files-tree" class="agent-chat-files-tree" role="tree" data-file-tree-colored-icons="true"></div>
+                            </aside>
                             </div>
                         </div>
                         <aside id="agent-terminal-drawer" class="agent-terminal-drawer" hidden>
@@ -5600,7 +5638,7 @@
     <!-- Marked.js + DOMPurify + 其他前端依赖：本地 vendor，内网/离线部署不依赖 CDN -->
     <script src="/static/vendor/marked.min.js"></script>
     <script src="/static/vendor/purify.min.js"></script>
-    <script src="/static/js/sanitize-markdown.js"></script>
+    <script src="/static/js/sanitize-markdown.js?v=20260923-chatmd-1"></script>
     <!-- Cytoscape.js for attack chain visualization -->
     <script src="/static/vendor/cytoscape.min.js"></script>
     <!-- ELK.js for high-quality DAG layout (reduces edge crossings) -->
@@ -6716,8 +6754,8 @@
     <script src="/static/js/agents.js"></script>
     <script src="/static/js/dashboard.js?v=20260923-ui-1"></script>
     <script src="/static/js/chat-scroll.js?v=20260815-1"></script>
-    <script src="/static/js/monitor.js?v=20260923-ui-1"></script>
-    <script src="/static/js/chat.js?v=20260922-rail-depth-1"></script>
+    <script src="/static/js/monitor.js?v=20260923-stream-1"></script>
+    <script src="/static/js/chat.js?v=20260923-chatmd-1"></script>
     <script src="/static/js/chat-plan-progress.js?v=20260815-1"></script>
     <script src="/static/js/hitl.js?v=20260923-ui-1"></script>
     <script src="/static/js/tool-guard.js?v=20260907-7"></script>
@@ -6729,7 +6767,9 @@
     <script src="/static/vendor/xterm.js"></script>
     <script src="/static/vendor/xterm-addon-fit.js"></script>
     <script src="/static/js/terminal.js?v=20260922-termbar-2"></script>
-    <script src="/static/js/agent-shell.js?v=20260923-adminonly-1"></script>
+    <script src="/static/vendor/pierre-built-in-icons.js?v=20260923-mdview-1"></script>
+    <script src="/static/js/codework-file-icons.js?v=20260923-mdview-1"></script>
+    <script src="/static/js/agent-shell.js?v=20260923-filespanel-1"></script>
     <script src="/static/js/knowledge.js?v=20260923-ui-1"></script>
     <script src="/static/js/skills.js?v=20260923-ui-1"></script>
     <script src="/static/js/fact-graph.js"></script>

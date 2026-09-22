@@ -921,6 +921,8 @@ function applyStreamPlainTextNow(contentEl, text, state) {
     const full = text == null ? '' : String(text);
     const prevLen = state && state.renderedLen ? state.renderedLen : 0;
     contentEl.classList.add('timeline-stream-plain');
+    // 流式增量写入期间打 live 标记（渲染末尾输入光标）；终态直写（state 为空）时移除。
+    contentEl.classList.toggle('timeline-stream-live', !!state);
 
     if (full.length > prevLen && contentEl.childNodes.length === 1 &&
         contentEl.firstChild && contentEl.firstChild.nodeType === Node.TEXT_NODE) {
@@ -1032,7 +1034,7 @@ function setTimelineItemContentStreamRich(contentEl, html) {
 
 function formatAssistantMarkdownContent(text) {
     if (typeof window.csMarkdownSanitize !== 'undefined') {
-        return window.csMarkdownSanitize.formatMarkdownToHtml(text, { profile: 'chat' });
+        return window.csMarkdownSanitize.formatMarkdownToHtml(text, { profile: 'chat', layout: 'agent' });
     }
     const raw = text == null ? '' : String(text);
     return escapeHtmlLocal(raw).replace(/\n/g, '<br>');
@@ -1059,6 +1061,9 @@ function updateAssistantBubbleContent(assistantMessageId, content, renderMarkdow
         : escapeHtmlLocal(newContent).replace(/\n/g, '<br>');
 
     bubble.innerHTML = html;
+    if (window.csMarkdownSanitize && window.csMarkdownSanitize.paintAgentMarkdownBubble) {
+        window.csMarkdownSanitize.paintAgentMarkdownBubble(bubble);
+    }
 
     // 更新原始内容（给复制功能用）
     assistantElement.dataset.originalContent = newContent;

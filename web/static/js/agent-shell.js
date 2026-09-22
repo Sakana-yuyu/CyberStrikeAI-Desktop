@@ -809,4 +809,1102 @@
 
     document.addEventListener('DOMContentLoaded', bindCreateMenu);
     window.setTimeout(bindCreateMenu, 0);
+
+    /* —— Chat right-side project file browser (Code Work FileBrowserPanel layout) —— */
+    /* Prefer GET /api/projects/:id/linked-tree; fall back to /api/chat-uploads workspace. */
+
+    var filesPanelOpen = false;
+    var filesPanelHideTimer = 0;
+    var filesExpanded = Object.create(null);
+    var filesLoadToken = 0;
+    var filesLinkedProjectId = '';
+    var filesLinkedLoaded = Object.create(null);
+    var filesLinkedRelByKey = Object.create(null);
+    var filesSelectedKey = '';
+    var filesViewerOpen = false;
+    var filesViewerToken = 0;
+    var filesViewerProjectLabel = '';
+    var filesOpenTabs = []; // { id, pathKey, relPath, source, name }
+    var filesActiveTabId = '';
+    var LEVEL_PAD = 12; // compact density indent ≈ Code Work --trees-level-gap * depth + base
+
+    function filesT(key, fallback) {
+        if (typeof window.t === 'function') {
+            var v = window.t(key);
+            if (v && v !== key) return v;
+        }
+        return fallback;
+    }
+
+    function filesEscape(text) {
+        return String(text == null ? '' : text)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function ensureFileIcons() {
+        if (window.CodeWorkFileIcons && typeof window.CodeWorkFileIcons.ensureSprite === 'function') {
+            window.CodeWorkFileIcons.ensureSprite();
+        }
+    }
+
+    function folderIconHtml() {
+        if (window.CodeWorkFileIcons && window.CodeWorkFileIcons.folderIconHtml) {
+            return window.CodeWorkFileIcons.folderIconHtml();
+        }
+        return '';
+    }
+
+    function fileIconHtml(fileName) {
+        if (window.CodeWorkFileIcons && window.CodeWorkFileIcons.fileIconHtml) {
+            return window.CodeWorkFileIcons.fileIconHtml(fileName);
+        }
+        return '';
+    }
+
+    function currentChatProjectId() {
+        var loaded = String(window._loadedConversationProjectId || '').trim();
+        if (loaded) return loaded;
+        if (typeof window.getActiveProjectId === 'function') {
+            return String(window.getActiveProjectId() || '').trim();
+        }
+        return '';
+    }
+
+    function currentChatConversationId() {
+        return String(window.currentConversationId || '').trim();
+    }
+
+    function currentChatProjectName(projectId) {
+        var id = String(projectId || '').trim();
+        if (!id) return '';
+        if (window.projectNameById && window.projectNameById[id]) {
+            return String(window.projectNameById[id]);
+        }
+        var label = document.getElementById('chat-project-text');
+        if (label) {
+            var text = String(label.textContent || '').trim();
+            if (text && text !== filesT('projects.noProject', '无项目')) return text;
+        }
+        return id;
+    }
+
+    function makeTreeNode() {
+        return { dirs: Object.create(null), files: [], lazy: false };
+    }
+
+    function stripWorkspacePrefix(rel, projectId) {
+        var rp = String(rel || '').replace(/\\/g, '/').replace(/^\/+/, '');
+        rp = rp.replace(/^__workspace__\//, '');
+        if (projectId) {
+            var projPrefix = 'projects/' + projectId + '/';
+            if (rp.indexOf(projPrefix) === 0) return rp.slice(projPrefix.length);
+            if (rp === 'projects/' + projectId) return '';
+        }
+        if (rp.indexOf('projects/') === 0) {
+            var parts = rp.split('/');
+            if (parts.length >= 2) return parts.slice(2).join('/');
+        }
+        if (rp.indexOf('conversations/') === 0) {
+            var cparts = rp.split('/');
+            if (cparts.length >= 2) return cparts.slice(2).join('/');
+        }
+        return rp;
+    }
+
+    function insertFilePath(root, relPath, name) {
+        var parts = String(relPath || '').split('/').filter(Boolean);
+        if (!parts.length) {
+            if (name) root.files.push(String(name));
+            return;
+        }
+        var node = root;
+        var i;
+        for (i = 0; i < parts.length - 1; i++) {
+            if (!node.dirs[parts[i]]) node.dirs[parts[i]] = makeTreeNode();
+            node = node.dirs[parts[i]];
+        }
+        node.files.push(parts[parts.length - 1]);
+    }
+
+    function insertFolderPath(root, relPath) {
+        var parts = String(relPath || '').split('/').filter(Boolean);
+        if (!parts.length) return;
+        var node = root;
+        var i;
+        for (i = 0; i < parts.length; i++) {
+            if (!node.dirs[parts[i]]) node.dirs[parts[i]] = makeTreeNode();
+            node = node.dirs[parts[i]];
+        }
+    }
+
+    function buildProjectTree(files, folders, projectId) {
+        var root = makeTreeNode();
+        (Array.isArray(files) ? files : []).forEach(function (f) {
+            if (!f || f.source !== 'workspace') return;
+            var rel = stripWorkspacePrefix(f.relativePath || f.RelativePath, projectId);
+            if (!rel) {
+                var n = f.name || f.Name;
+                if (n) root.files.push(String(n));
+                return;
+            }
+            insertFilePath(root, rel, f.name || f.Name);
+        });
+        (Array.isArray(folders) ? folders : []).forEach(function (folder) {
+            var fp = stripWorkspacePrefix(folder, projectId);
+            if (fp) insertFolderPath(root, fp);
+        });
+        return root;
+    }
+
+    function treeFromLinkedEntries(entries) {
+        var root = makeTreeNode();
+        (Array.isArray(entries) ? entries : []).forEach(function (e) {
+            if (!e || !e.name) return;
+            if (e.type === 'dir') {
+                var child = makeTreeNode();
+                child.lazy = true;
+                root.dirs[e.name] = child;
+            } else {
+                root.files.push(String(e.name));
+            }
+        });
+        return root;
+    }
+
+    function treeHasContent(node) {
+        if (!node) return false;
+        if (node.files && node.files.length) return true;
+        var key;
+        for (key in node.dirs) {
+            if (Object.prototype.hasOwnProperty.call(node.dirs, key)) return true;
+        }
+        return false;
+    }
+
+    function sortNames(names) {
+        return names.slice().sort(function (a, b) {
+            return a.localeCompare(b, undefined, { sensitivity: 'base', numeric: true });
+        });
+    }
+
+    function joinRelPath(base, name) {
+        var b = String(base || '').replace(/^\/+|\/+$/g, '');
+        var n = String(name || '');
+        return b ? (b + '/' + n) : n;
+    }
+
+    function renderFileRowHtml(file, pathKey, depth, source, relPath) {
+        var fpad = 8 + depth * LEVEL_PAD;
+        var selected = filesSelectedKey === pathKey;
+        var html = '';
+        html += '<button type="button" class="agent-chat-files-row is-file' + (selected ? ' is-selected' : '') +
+            '" role="treeitem" aria-selected="' + (selected ? 'true' : 'false') + '"' +
+            ' data-files-file="1" data-files-path="' + filesEscape(pathKey) + '"' +
+            ' data-files-source="' + filesEscape(source) + '"' +
+            ' data-files-rel="' + filesEscape(relPath) + '"' +
+            ' style="padding-left:' + fpad + 'px">';
+        html += '<span class="agent-chat-files-icon" aria-hidden="true">' + fileIconHtml(file) + '</span>';
+        html += '<span class="agent-chat-files-name">' + filesEscape(file) + '</span>';
+        html += '</button>';
+        return html;
+    }
+
+    function renderTreeNodeHtml(name, node, pathKey, depth, isRoot, relPath, source) {
+        var expanded = filesExpanded[pathKey] === true;
+        if (isRoot && filesExpanded[pathKey] == null) expanded = true;
+        if (isRoot) filesExpanded[pathKey] = expanded;
+        var pad = 8 + depth * LEVEL_PAD;
+        var dirNames = sortNames(Object.keys(node.dirs));
+        var fileNames = sortNames(node.files || []);
+        var lazy = !!node.lazy && !filesLinkedLoaded[pathKey];
+        var src = source || 'linked';
+        if (relPath != null) filesLinkedRelByKey[pathKey] = relPath;
+        var html = '';
+        html += '<div class="agent-chat-files-node" role="group">';
+        html += '<button type="button" class="agent-chat-files-row" role="treeitem" aria-expanded="' + (expanded ? 'true' : 'false') + '" data-files-path="' + filesEscape(pathKey) + '"' +
+            (lazy ? ' data-files-lazy="1"' : '') +
+            (relPath != null ? ' data-files-rel="' + filesEscape(relPath) + '"' : '') +
+            ' data-files-source="' + filesEscape(src) + '"' +
+            ' style="padding-left:' + pad + 'px">';
+        html += '<span class="agent-chat-files-icon is-folder" aria-hidden="true">' + folderIconHtml() + '</span>';
+        html += '<span class="agent-chat-files-name' + (isRoot ? ' is-root' : '') + '">' + filesEscape(name) + '</span>';
+        html += '</button>';
+        html += '<div class="agent-chat-files-children' + (expanded ? ' is-open' : '') + '" data-files-children="' + filesEscape(pathKey) + '">';
+        if (!lazy) {
+            dirNames.forEach(function (dir) {
+                var childRel = joinRelPath(relPath, dir);
+                html += renderTreeNodeHtml(dir, node.dirs[dir], pathKey + '/' + dir, depth + 1, false, childRel, src);
+            });
+            fileNames.forEach(function (file) {
+                var fileRel = joinRelPath(relPath, file);
+                html += renderFileRowHtml(file, pathKey + '/' + file, depth + 1, src, fileRel);
+            });
+        }
+        html += '</div></div>';
+        return html;
+    }
+
+    function filesPanelReducedMotion() {
+        try {
+            return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function setFilesPanelOpen(open) {
+        filesPanelOpen = !!open;
+        var panel = document.getElementById('agent-chat-files-panel');
+        var btn = document.getElementById('agent-chat-files-toggle');
+        var container = document.querySelector('#page-chat .chat-container');
+        if (btn) {
+            btn.setAttribute('aria-pressed', filesPanelOpen ? 'true' : 'false');
+            btn.setAttribute('aria-expanded', filesPanelOpen ? 'true' : 'false');
+        }
+        if (container) container.classList.toggle('has-agent-files-panel', filesPanelOpen);
+        if (panel) {
+            if (filesPanelHideTimer) {
+                clearTimeout(filesPanelHideTimer);
+                filesPanelHideTimer = 0;
+            }
+            if (filesPanelOpen) {
+                var wasHidden = panel.hidden;
+                panel.hidden = false;
+                if (wasHidden) {
+                    panel.classList.remove('is-open');
+                    void panel.offsetWidth;
+                }
+                panel.classList.add('is-open');
+            } else {
+                panel.classList.remove('is-open');
+                if (filesPanelReducedMotion()) {
+                    panel.hidden = true;
+                } else {
+                    filesPanelHideTimer = window.setTimeout(function () {
+                        filesPanelHideTimer = 0;
+                        if (!filesPanelOpen) panel.hidden = true;
+                    }, 320);
+                }
+            }
+        }
+        if (filesPanelOpen) {
+            ensureFileIcons();
+            loadAgentChatFilesTree();
+        }
+    }
+
+    function toggleAgentChatFilesPanel() {
+        setFilesPanelOpen(!filesPanelOpen);
+    }
+
+    function closeAgentChatFilesPanel() {
+        setFilesPanelOpen(false);
+    }
+
+    async function fetchLinkedTree(projectId, relPath) {
+        var url = '/api/projects/' + encodeURIComponent(projectId) + '/linked-tree';
+        if (relPath) url += '?path=' + encodeURIComponent(relPath);
+        var res = await window.apiFetch(url);
+        if (!res.ok) {
+            var errText = await res.text();
+            throw new Error(errText || String(res.status));
+        }
+        return res.json();
+    }
+
+    async function fetchWorkspaceTree(projectId) {
+        var params = new URLSearchParams();
+        params.set('project', projectId);
+        params.set('source', 'workspace');
+        params.set('pageSize', 'all');
+        var convId = currentChatConversationId();
+        if (convId) params.set('conversation', convId);
+        var res = await window.apiFetch('/api/chat-uploads?' + params.toString());
+        if (!res.ok) {
+            var errText = await res.text();
+            throw new Error(errText || String(res.status));
+        }
+        var data = await res.json();
+        var files = Array.isArray(data.files) ? data.files : [];
+        var folders = Array.isArray(data.folders) ? data.folders : [];
+        return buildProjectTree(files, folders, projectId);
+    }
+
+    async function loadAgentChatFilesTree() {
+        var treeEl = document.getElementById('agent-chat-files-tree');
+        if (!treeEl || !filesPanelOpen) return;
+        ensureFileIcons();
+        var projectId = currentChatProjectId();
+        var token = ++filesLoadToken;
+        filesLinkedProjectId = '';
+        filesLinkedLoaded = Object.create(null);
+        filesLinkedRelByKey = Object.create(null);
+
+        if (!projectId) {
+            treeEl.innerHTML = '<p class="agent-chat-files-empty">' + filesEscape(filesT('agentShell.filesEmptyNoProject', '当前对话未绑定项目，绑定后可浏览项目文件。')) + '</p>';
+            return;
+        }
+
+        treeEl.innerHTML = '<p class="agent-chat-files-loading">' + filesEscape(filesT('agentShell.filesLoading', '加载中…')) + '</p>';
+
+        try {
+            if (typeof window.apiFetch !== 'function') {
+                throw new Error('apiFetch unavailable');
+            }
+
+            var linkedData = null;
+            try {
+                linkedData = await fetchLinkedTree(projectId, '');
+            } catch (linkedErr) {
+                console.warn('linked-tree unavailable, falling back to workspace', linkedErr);
+            }
+            if (token !== filesLoadToken || !filesPanelOpen) return;
+
+            var html = '';
+            var hasAny = false;
+            var projectLabel = currentChatProjectName(projectId) || projectId;
+            filesViewerProjectLabel = projectLabel;
+
+            if (linkedData && linkedData.linked) {
+                filesLinkedProjectId = projectId;
+                var linkedRoot = treeFromLinkedEntries(linkedData.entries);
+                var rootName = projectLabel || linkedData.rootName || projectId;
+                filesLinkedLoaded[rootName] = true;
+                filesLinkedRelByKey[rootName] = '';
+                filesExpanded[rootName] = true;
+                if (treeHasContent(linkedRoot)) {
+                    hasAny = true;
+                    html += renderTreeNodeHtml(rootName, linkedRoot, rootName, 0, true, '', 'linked');
+                }
+
+                try {
+                    var wsTree = await fetchWorkspaceTree(projectId);
+                    if (token !== filesLoadToken || !filesPanelOpen) return;
+                    if (treeHasContent(wsTree)) {
+                        hasAny = true;
+                        var wsName = filesT('agentShell.filesWorkspaceRoot', '工作区副本');
+                        filesExpanded[wsName] = false;
+                        html += renderTreeNodeHtml(wsName, wsTree, wsName, 0, true, '', 'workspace');
+                    }
+                } catch (wsErr) {
+                    console.warn('workspace tree optional load failed', wsErr);
+                }
+            } else {
+                var onlyWs = await fetchWorkspaceTree(projectId);
+                if (token !== filesLoadToken || !filesPanelOpen) return;
+                if (treeHasContent(onlyWs)) {
+                    hasAny = true;
+                    filesExpanded[projectLabel] = true;
+                    html += renderTreeNodeHtml(projectLabel, onlyWs, projectLabel, 0, true, '', 'workspace');
+                }
+            }
+
+            if (!hasAny) {
+                treeEl.innerHTML = '<p class="agent-chat-files-empty">' + filesEscape(filesT('agentShell.filesEmptyNoFiles', '项目文件夹暂无文件。')) + '</p>';
+                return;
+            }
+            treeEl.innerHTML = html;
+        } catch (e) {
+            if (token !== filesLoadToken) return;
+            console.error(e);
+            treeEl.innerHTML = '<p class="agent-chat-files-error">' + filesEscape(filesT('agentShell.filesLoadError', '无法加载文件列表')) + '</p>';
+        }
+    }
+
+    async function loadLinkedFolderChildren(btn, kids) {
+        var pathKey = btn.getAttribute('data-files-path') || '';
+        var rel = btn.getAttribute('data-files-rel');
+        var source = btn.getAttribute('data-files-source') || 'linked';
+        if (rel == null) rel = filesLinkedRelByKey[pathKey] || '';
+        if (!filesLinkedProjectId || !pathKey || filesLinkedLoaded[pathKey]) return;
+        kids.innerHTML = '<p class="agent-chat-files-loading" style="padding-left:' + (parseInt(btn.style.paddingLeft, 10) || 8) + 'px">' +
+            filesEscape(filesT('agentShell.filesLoading', '加载中…')) + '</p>';
+        try {
+            var data = await fetchLinkedTree(filesLinkedProjectId, rel);
+            if (!filesPanelOpen || pathKey !== btn.getAttribute('data-files-path')) return;
+            filesLinkedLoaded[pathKey] = true;
+            btn.removeAttribute('data-files-lazy');
+            var node = treeFromLinkedEntries(data && data.entries);
+            var depth = Math.max(0, Math.round(((parseInt(btn.style.paddingLeft, 10) || 8) - 8) / LEVEL_PAD));
+            var dirNames = sortNames(Object.keys(node.dirs));
+            var fileNames = sortNames(node.files || []);
+            var html = '';
+            dirNames.forEach(function (dir) {
+                var childRel = joinRelPath(rel, dir);
+                html += renderTreeNodeHtml(dir, node.dirs[dir], pathKey + '/' + dir, depth + 1, false, childRel, source);
+            });
+            fileNames.forEach(function (file) {
+                var fileRel = joinRelPath(rel, file);
+                html += renderFileRowHtml(file, pathKey + '/' + file, depth + 1, source, fileRel);
+            });
+            if (!html) {
+                var emptyPad = 8 + (depth + 1) * LEVEL_PAD;
+                html = '<p class="agent-chat-files-empty" style="padding:4px 8px 4px ' + emptyPad + 'px">' +
+                    filesEscape(filesT('agentShell.filesEmptyFolder', '空文件夹')) + '</p>';
+            }
+            kids.innerHTML = html;
+        } catch (e) {
+            console.error(e);
+            kids.innerHTML = '<p class="agent-chat-files-error" style="padding-left:' + (parseInt(btn.style.paddingLeft, 10) || 8) + 'px">' +
+                filesEscape(filesT('agentShell.filesLoadError', '无法加载文件列表')) + '</p>';
+        }
+    }
+
+    function setSelectedFileRow(pathKey) {
+        filesSelectedKey = pathKey || '';
+        var treeEl = document.getElementById('agent-chat-files-tree');
+        if (!treeEl) return;
+        treeEl.querySelectorAll('.agent-chat-files-row.is-file').forEach(function (row) {
+            var key = row.getAttribute('data-files-path') || '';
+            var on = key && key === filesSelectedKey;
+            row.classList.toggle('is-selected', on);
+            row.setAttribute('aria-selected', on ? 'true' : 'false');
+        });
+    }
+
+    function closeAgentFileViewer() {
+        filesViewerOpen = false;
+        filesViewerToken++;
+        filesOpenTabs = [];
+        filesActiveTabId = '';
+        closeFileViewerMoreMenu();
+        var viewer = document.getElementById('agent-file-viewer');
+        var main = document.querySelector('#page-chat .agent-chat-main');
+        if (viewer) {
+            viewer.hidden = true;
+            var body = document.getElementById('agent-file-viewer-body');
+            if (body) {
+                body.classList.remove('is-status');
+                body.innerHTML = '';
+            }
+        }
+        if (main) main.classList.remove('has-file-viewer');
+        setSelectedFileRow('');
+        renderFileTabs();
+        var crumbs = document.getElementById('agent-file-viewer-crumbs');
+        if (crumbs) crumbs.innerHTML = '';
+    }
+
+    function fileTabId(source, relPath) {
+        return String(source || 'linked') + ':' + String(relPath || '');
+    }
+
+    function fileBasename(relPath) {
+        var parts = String(relPath || '').split('/').filter(Boolean);
+        return parts.length ? parts[parts.length - 1] : String(relPath || '');
+    }
+
+    function findFileTabIndex(id) {
+        for (var i = 0; i < filesOpenTabs.length; i++) {
+            if (filesOpenTabs[i].id === id) return i;
+        }
+        return -1;
+    }
+
+    function getActiveFileTab() {
+        var idx = findFileTabIndex(filesActiveTabId);
+        return idx >= 0 ? filesOpenTabs[idx] : null;
+    }
+
+    function renderFileTabs() {
+        var list = document.getElementById('agent-file-viewer-tabs');
+        if (!list) return;
+        ensureFileIcons();
+        if (!filesOpenTabs.length) {
+            list.innerHTML = '';
+            return;
+        }
+        var html = '';
+        filesOpenTabs.forEach(function (tab) {
+            var active = tab.id === filesActiveTabId;
+            html += '<div class="agent-file-tab' + (active ? ' is-active' : '') + '"' +
+                ' role="tab" aria-selected="' + (active ? 'true' : 'false') + '"' +
+                ' data-active-tab="' + (active ? 'true' : 'false') + '"' +
+                ' data-file-tab-id="' + filesEscape(tab.id) + '" title="' + filesEscape(tab.relPath) + '">';
+            html += '<button type="button" class="agent-file-tab-close" data-file-tab-close="' +
+                filesEscape(tab.id) + '" aria-label="Close ' + filesEscape(tab.name) + '" title="Close">';
+            html += '<span class="agent-file-tab-icon" aria-hidden="true">' + fileIconHtml(tab.name) + '</span>';
+            html += '<svg class="agent-file-tab-x" width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+            html += '</button>';
+            html += '<button type="button" class="agent-file-tab-label" data-file-tab-activate="' +
+                filesEscape(tab.id) + '"><span class="agent-file-tab-name">' + filesEscape(tab.name) + '</span></button>';
+            html += '</div>';
+        });
+        list.innerHTML = html;
+        var activeEl = list.querySelector('.agent-file-tab.is-active');
+        if (activeEl && typeof activeEl.scrollIntoView === 'function') {
+            try { activeEl.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (e) { /* ignore */ }
+        }
+    }
+
+    function setViewerBodyStatus(html) {
+        var body = document.getElementById('agent-file-viewer-body');
+        if (!body) return;
+        body.classList.add('is-status');
+        body.innerHTML = html;
+    }
+
+    function setViewerBodyContent(html) {
+        var body = document.getElementById('agent-file-viewer-body');
+        if (!body) return;
+        body.classList.remove('is-status');
+        body.innerHTML = html;
+    }
+
+    function renderViewerCrumbs(projectLabel, relPath) {
+        var el = document.getElementById('agent-file-viewer-crumbs');
+        if (!el) return;
+        var parts = String(relPath || '').split('/').filter(Boolean);
+        var html = '<span class="agent-file-viewer-crumb">' + filesEscape(projectLabel || 'project') + '</span>';
+        parts.forEach(function (part, idx) {
+            html += '<span class="agent-file-viewer-sep" aria-hidden="true">›</span>';
+            html += '<span class="agent-file-viewer-crumb' + (idx === parts.length - 1 ? ' is-file' : '') + '">' +
+                filesEscape(part) + '</span>';
+        });
+        el.innerHTML = html;
+    }
+
+    function renderCodeLines(text) {
+        var lines = String(text == null ? '' : text).split('\n');
+        var html = '<pre class="agent-file-viewer-code">';
+        for (var i = 0; i < lines.length; i++) {
+            html += '<div class="agent-file-line"><span class="agent-file-gutter">' + (i + 1) +
+                '</span><span class="agent-file-text">' + filesEscape(lines[i]) + '</span></div>';
+        }
+        html += '</pre>';
+        return html;
+    }
+
+    function showViewerShell() {
+        var viewer = document.getElementById('agent-file-viewer');
+        var main = document.querySelector('#page-chat .agent-chat-main');
+        if (!viewer || !main) return false;
+        filesViewerOpen = true;
+        viewer.hidden = false;
+        main.classList.add('has-file-viewer');
+        return true;
+    }
+
+    async function loadActiveFileTabContent() {
+        var tab = getActiveFileTab();
+        var projectId = currentChatProjectId();
+        if (!tab || !projectId) return;
+
+        ensureFileIcons();
+        setSelectedFileRow(tab.pathKey);
+        renderViewerCrumbs(filesViewerProjectLabel || currentChatProjectName(projectId) || projectId, tab.relPath);
+        setViewerBodyStatus('<p class="agent-file-viewer-loading">' +
+            filesEscape(filesT('agentShell.fileViewerLoading', '正在打开文件…')) + '</p>');
+
+        var token = ++filesViewerToken;
+        var source = tab.source;
+        var relPath = tab.relPath;
+
+        try {
+            var data = null;
+            if (source === 'linked') {
+                var res = await window.apiFetch(
+                    '/api/projects/' + encodeURIComponent(projectId) +
+                    '/linked-file?path=' + encodeURIComponent(relPath)
+                );
+                if (!res.ok) throw new Error(await res.text() || String(res.status));
+                data = await res.json();
+                if (!data.linked) throw new Error(data.error || 'not linked');
+            } else {
+                var apiPath = '__workspace__/projects/' + projectId + '/' + relPath;
+                var wsRes = await window.apiFetch('/api/chat-uploads/content?path=' + encodeURIComponent(apiPath));
+                if (!wsRes.ok) {
+                    var errBody = await wsRes.text();
+                    if (wsRes.status === 400 && /binary/i.test(errBody)) {
+                        data = { kind: 'binary', path: relPath, name: tab.name };
+                    } else if (wsRes.status === 413 || /too large/i.test(errBody)) {
+                        data = { kind: 'too_large', path: relPath, name: tab.name };
+                    } else {
+                        throw new Error(errBody || String(wsRes.status));
+                    }
+                } else {
+                    var wsData = await wsRes.json();
+                    data = {
+                        kind: 'text',
+                        path: relPath,
+                        name: tab.name,
+                        content: wsData.content || '',
+                        encoding: 'utf-8'
+                    };
+                }
+            }
+            if (token !== filesViewerToken || !filesViewerOpen || filesActiveTabId !== tab.id) return;
+
+            if (data.kind === 'too_large') {
+                setViewerBodyStatus('<p class="agent-file-viewer-empty">' +
+                    filesEscape(filesT('agentShell.fileViewerTooLarge', '文件过大（超过 1MB），无法预览。')) + '</p>');
+                return;
+            }
+            if (data.kind === 'binary') {
+                setViewerBodyStatus('<p class="agent-file-viewer-empty">' +
+                    filesEscape(filesT('agentShell.fileViewerBinary', '此文件为二进制内容，无法在预览中显示。')) + '</p>');
+                return;
+            }
+            if (data.kind === 'image' && data.content) {
+                var mime = data.contentType || 'image/png';
+                setViewerBodyContent('<div class="agent-file-viewer-image-wrap"><img alt="' +
+                    filesEscape(data.name || relPath) + '" src="data:' + filesEscape(mime) +
+                    ';base64,' + data.content + '"/></div>');
+                return;
+            }
+            if (isMarkdownFileName(tab.name) || isMarkdownFileName(relPath)) {
+                setViewerBodyContent(renderMarkdownArticle(data.content || ''));
+                var article = document.querySelector('#agent-file-viewer-body .agent-file-viewer-md');
+                if (article) {
+                    enhanceMarkdownArticle(article, tab);
+                }
+                return;
+            }
+            setViewerBodyContent(renderCodeLines(data.content || ''));
+        } catch (e) {
+            if (token !== filesViewerToken || filesActiveTabId !== tab.id) return;
+            console.error(e);
+            setViewerBodyStatus('<p class="agent-file-viewer-error">' +
+                filesEscape(filesT('agentShell.fileViewerError', '无法打开该文件')) + '</p>');
+        }
+    }
+
+    function isMarkdownFileName(name) {
+        return /\.(md|markdown)$/i.test(String(name || ''));
+    }
+
+    function renderMarkdownArticle(text) {
+        var html = '';
+        if (typeof window.formatMarkdown === 'function') {
+            html = window.formatMarkdown(text, { profile: 'chat' });
+        } else if (window.csMarkdownSanitize && typeof window.csMarkdownSanitize.formatMarkdownToHtml === 'function') {
+            html = window.csMarkdownSanitize.formatMarkdownToHtml(text, { profile: 'chat' });
+        } else {
+            html = '<pre>' + filesEscape(text) + '</pre>';
+        }
+        return '<article class="agent-file-viewer-md">' + html + '</article>';
+    }
+
+    function dirnameRel(relPath) {
+        var parts = String(relPath || '').replace(/\\/g, '/').split('/');
+        parts.pop();
+        return parts.join('/');
+    }
+
+    function resolveRelativePath(baseRel, href) {
+        var h = String(href || '').replace(/\\/g, '/').replace(/^\.\//, '');
+        if (!h || h.indexOf('..') >= 0) return '';
+        if (h.charAt(0) === '/') h = h.replace(/^\/+/, '');
+        var base = dirnameRel(baseRel);
+        return joinRelPath(base, h);
+    }
+
+    function replaceImgWithAlt(img) {
+        var span = document.createElement('span');
+        span.className = 'agent-file-md-img-fallback';
+        span.textContent = img.getAttribute('alt') || img.getAttribute('src') || '';
+        if (img.parentNode) img.parentNode.replaceChild(span, img);
+    }
+
+    function enhanceMarkdownArticle(article, tab) {
+        if (!article) return;
+        if (window.csMarkdownSanitize && typeof window.csMarkdownSanitize.stripSuspiciousImages === 'function') {
+            window.csMarkdownSanitize.stripSuspiciousImages(article);
+        }
+        [].slice.call(article.querySelectorAll('a[href]')).forEach(function (a) {
+            var href = (a.getAttribute('href') || '').trim();
+            if (/^https?:\/\//i.test(href) || href.indexOf('mailto:') === 0) {
+                a.setAttribute('target', '_blank');
+                a.setAttribute('rel', 'noopener noreferrer');
+            } else if (/^file:/i.test(href) || href.indexOf('javascript:') === 0) {
+                a.removeAttribute('href');
+            }
+        });
+        var imgs = [].slice.call(article.querySelectorAll('img[src]'));
+        imgs.forEach(function (img) {
+            var src = (img.getAttribute('src') || '').trim();
+            if (/^https?:\/\//i.test(src) || /^data:image\//i.test(src)) return;
+            if (/^file:/i.test(src) || src.indexOf('..') >= 0 || !src) {
+                replaceImgWithAlt(img);
+                return;
+            }
+            var resolved = resolveRelativePath(tab.relPath, src);
+            if (!resolved || tab.source !== 'linked') {
+                replaceImgWithAlt(img);
+                return;
+            }
+            var projectId = currentChatProjectId();
+            if (!projectId || typeof window.apiFetch !== 'function') {
+                replaceImgWithAlt(img);
+                return;
+            }
+            window.apiFetch(
+                '/api/projects/' + encodeURIComponent(projectId) +
+                '/linked-file?path=' + encodeURIComponent(resolved)
+            ).then(function (res) {
+                if (!res.ok) throw new Error(String(res.status));
+                return res.json();
+            }).then(function (data) {
+                if (!img.isConnected) return;
+                if (data && data.kind === 'image' && data.content) {
+                    img.setAttribute('src', 'data:' + (data.contentType || 'image/png') + ';base64,' + data.content);
+                    img.removeAttribute('title');
+                } else {
+                    replaceImgWithAlt(img);
+                }
+            }).catch(function () {
+                if (img.isConnected) replaceImgWithAlt(img);
+            });
+        });
+    }
+
+    function activateFileTab(tabId) {
+        var idx = findFileTabIndex(tabId);
+        if (idx < 0) return;
+        filesActiveTabId = tabId;
+        renderFileTabs();
+        loadActiveFileTabContent();
+    }
+
+    function closeFileTab(tabId) {
+        var idx = findFileTabIndex(tabId);
+        if (idx < 0) return;
+        var wasActive = filesActiveTabId === tabId;
+        filesOpenTabs.splice(idx, 1);
+        if (!filesOpenTabs.length) {
+            closeAgentFileViewer();
+            return;
+        }
+        if (wasActive) {
+            var next = filesOpenTabs[Math.min(idx, filesOpenTabs.length - 1)];
+            filesActiveTabId = next.id;
+            renderFileTabs();
+            loadActiveFileTabContent();
+        } else {
+            renderFileTabs();
+        }
+    }
+
+    function closeOtherFileTabs() {
+        var active = getActiveFileTab();
+        if (!active) return;
+        filesOpenTabs = filesOpenTabs.filter(function (t) { return t.id === active.id; });
+        renderFileTabs();
+    }
+
+    function setMenuItemDisabled(el, disabled) {
+        if (!el) return;
+        el.disabled = !!disabled;
+        el.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+    }
+
+    function syncFileViewerMoreLabels() {
+        var btn = document.getElementById('agent-file-viewer-more');
+        var moreLabel = filesT('agentShell.fileViewerMore', '更多');
+        if (btn) {
+            btn.setAttribute('aria-label', moreLabel);
+            btn.setAttribute('title', moreLabel);
+        }
+        var menu = document.getElementById('agent-file-viewer-more-menu');
+        if (!menu) return;
+        var map = {
+            'close-current': ['agentShell.fileViewerCloseCurrent', '关闭当前'],
+            'close-others': ['agentShell.fileViewerCloseOthers', '关闭其他'],
+            'close-all': ['agentShell.fileViewerCloseAll', '关闭全部'],
+            'copy-path': ['agentShell.fileViewerCopyPath', '复制路径'],
+            'reveal-in-tree': ['agentShell.fileViewerRevealInTree', '在文件树中定位']
+        };
+        Object.keys(map).forEach(function (action) {
+            var el = menu.querySelector('[data-file-menu="' + action + '"]');
+            if (el) el.textContent = filesT(map[action][0], map[action][1]);
+        });
+    }
+
+    function updateFileViewerMenuEnabled() {
+        var menu = document.getElementById('agent-file-viewer-more-menu');
+        if (!menu) return;
+        var tab = getActiveFileTab();
+        var hasTab = !!tab;
+        var multi = filesOpenTabs.length > 1;
+        setMenuItemDisabled(menu.querySelector('[data-file-menu="close-current"]'), !hasTab);
+        setMenuItemDisabled(menu.querySelector('[data-file-menu="close-others"]'), !hasTab || !multi);
+        setMenuItemDisabled(menu.querySelector('[data-file-menu="close-all"]'), false);
+        setMenuItemDisabled(menu.querySelector('[data-file-menu="copy-path"]'), !hasTab);
+        setMenuItemDisabled(menu.querySelector('[data-file-menu="reveal-in-tree"]'), !hasTab);
+    }
+
+    function closeFileViewerMoreMenu() {
+        var menu = document.getElementById('agent-file-viewer-more-menu');
+        var btn = document.getElementById('agent-file-viewer-more');
+        if (menu) {
+            menu.hidden = true;
+            menu.classList.remove('is-up');
+        }
+        if (btn) btn.setAttribute('aria-expanded', 'false');
+    }
+
+    function openFileViewerMoreMenu() {
+        var menu = document.getElementById('agent-file-viewer-more-menu');
+        var btn = document.getElementById('agent-file-viewer-more');
+        if (!menu || !btn) return;
+        syncFileViewerMoreLabels();
+        updateFileViewerMenuEnabled();
+        menu.classList.remove('is-up');
+        menu.hidden = false;
+        btn.setAttribute('aria-expanded', 'true');
+        var rect = menu.getBoundingClientRect();
+        if (rect.bottom > (window.innerHeight - 8)) {
+            menu.classList.add('is-up');
+        }
+        var first = menu.querySelector('.agent-file-viewer-menu-item:not(:disabled)');
+        if (first && typeof first.focus === 'function') {
+            try { first.focus(); } catch (e) { /* ignore */ }
+        }
+    }
+
+    function toggleFileViewerMoreMenu(e) {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        var menu = document.getElementById('agent-file-viewer-more-menu');
+        if (menu && !menu.hidden) closeFileViewerMoreMenu();
+        else openFileViewerMoreMenu();
+    }
+
+    async function copyActiveFilePath() {
+        var tab = getActiveFileTab();
+        if (!tab) return;
+        var path = String(tab.relPath || '');
+        try {
+            if (!navigator.clipboard || typeof navigator.clipboard.writeText !== 'function') {
+                throw new Error('clipboard unavailable');
+            }
+            await navigator.clipboard.writeText(path);
+        } catch (e) {
+            console.warn(filesT('agentShell.fileViewerCopyFailed', '复制失败'), e);
+        }
+    }
+
+    async function ensureTreeFolderExpanded(pathKey) {
+        var btn = [].slice.call(document.querySelectorAll(
+            '#agent-chat-files-tree .agent-chat-files-row[data-files-path]:not([data-files-file])'
+        )).find(function (el) {
+            return el.getAttribute('data-files-path') === pathKey;
+        });
+        if (!btn) return;
+        var open = filesExpanded[pathKey] === true || btn.getAttribute('aria-expanded') === 'true';
+        var group = btn.parentElement;
+        var kids = group && group.querySelector(':scope > .agent-chat-files-children');
+        if (!open) {
+            filesExpanded[pathKey] = true;
+            btn.setAttribute('aria-expanded', 'true');
+            if (kids) kids.classList.add('is-open');
+        }
+        if (btn.getAttribute('data-files-lazy') === '1' && kids) {
+            await loadLinkedFolderChildren(btn, kids);
+        }
+    }
+
+    async function revealActiveFileInTree() {
+        var tab = getActiveFileTab();
+        if (!tab) return;
+        if (!filesPanelOpen) setFilesPanelOpen(true);
+        await new Promise(function (r) { setTimeout(r, 80); });
+        var pathKey = tab.pathKey || '';
+        if (!pathKey) return;
+        var parts = pathKey.split('/').filter(Boolean);
+        var acc = '';
+        for (var i = 0; i < parts.length - 1; i++) {
+            acc = acc ? (acc + '/' + parts[i]) : parts[i];
+            await ensureTreeFolderExpanded(acc);
+        }
+        setSelectedFileRow(pathKey);
+        var row = [].slice.call(document.querySelectorAll(
+            '#agent-chat-files-tree .agent-chat-files-row[data-files-file="1"]'
+        )).find(function (el) {
+            return el.getAttribute('data-files-path') === pathKey ||
+                el.getAttribute('data-files-rel') === tab.relPath;
+        });
+        if (row && typeof row.scrollIntoView === 'function') {
+            try { row.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+            catch (e) { row.scrollIntoView(true); }
+        }
+    }
+
+    function onFileViewerMenuAction(e) {
+        var item = e.target.closest && e.target.closest('[data-file-menu]');
+        if (!item || item.disabled) return;
+        e.preventDefault();
+        e.stopPropagation();
+        var action = item.getAttribute('data-file-menu') || '';
+        closeFileViewerMoreMenu();
+        if (action === 'close-current') {
+            if (filesActiveTabId) closeFileTab(filesActiveTabId);
+        } else if (action === 'close-others') {
+            closeOtherFileTabs();
+        } else if (action === 'close-all') {
+            closeAgentFileViewer();
+        } else if (action === 'copy-path') {
+            copyActiveFilePath();
+        } else if (action === 'reveal-in-tree') {
+            revealActiveFileInTree();
+        }
+    }
+
+    function onDocumentForFileViewerMenu(e) {
+        var menu = document.getElementById('agent-file-viewer-more-menu');
+        if (!menu || menu.hidden) return;
+        if (e.type === 'keydown') {
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                closeFileViewerMoreMenu();
+                var btn = document.getElementById('agent-file-viewer-more');
+                if (btn) btn.focus();
+            }
+            return;
+        }
+        var wrap = document.querySelector('.agent-file-viewer-more-wrap');
+        if (wrap && wrap.contains(e.target)) return;
+        closeFileViewerMoreMenu();
+    }
+
+    function openAgentFileViewer(opts) {
+        var source = opts.source || 'linked';
+        var relPath = String(opts.relPath || '').replace(/^\/+/, '');
+        var pathKey = opts.pathKey || relPath;
+        var projectId = currentChatProjectId();
+        if (!relPath || !projectId) return;
+        if (!showViewerShell()) return;
+
+        var id = fileTabId(source, relPath);
+        var existing = findFileTabIndex(id);
+        if (existing < 0) {
+            filesOpenTabs.push({
+                id: id,
+                pathKey: pathKey,
+                relPath: relPath,
+                source: source,
+                name: fileBasename(relPath)
+            });
+        } else {
+            filesOpenTabs[existing].pathKey = pathKey;
+        }
+        filesActiveTabId = id;
+        renderFileTabs();
+        loadActiveFileTabContent();
+    }
+
+    function onFileTabsClick(e) {
+        var closeBtn = e.target.closest && e.target.closest('[data-file-tab-close]');
+        if (closeBtn) {
+            e.preventDefault();
+            e.stopPropagation();
+            closeFileTab(closeBtn.getAttribute('data-file-tab-close') || '');
+            return;
+        }
+        var activateBtn = e.target.closest && e.target.closest('[data-file-tab-activate]');
+        if (activateBtn) {
+            e.preventDefault();
+            activateFileTab(activateBtn.getAttribute('data-file-tab-activate') || '');
+            return;
+        }
+        var card = e.target.closest && e.target.closest('.agent-file-tab[data-file-tab-id]');
+        if (card) {
+            e.preventDefault();
+            activateFileTab(card.getAttribute('data-file-tab-id') || '');
+        }
+    }
+
+    function onFilesTreeClick(e) {
+        var fileRow = e.target.closest && e.target.closest('.agent-chat-files-row[data-files-file="1"]');
+        if (fileRow) {
+            e.preventDefault();
+            openAgentFileViewer({
+                pathKey: fileRow.getAttribute('data-files-path') || '',
+                relPath: fileRow.getAttribute('data-files-rel') || '',
+                source: fileRow.getAttribute('data-files-source') || 'linked'
+            });
+            return;
+        }
+
+        var btn = e.target.closest && e.target.closest('.agent-chat-files-row[data-files-path]:not([data-files-file])');
+        if (!btn) return;
+        e.preventDefault();
+        var pathKey = btn.getAttribute('data-files-path') || '';
+        if (!pathKey) return;
+        var open = filesExpanded[pathKey] === true;
+        if (filesExpanded[pathKey] == null && btn.getAttribute('aria-expanded') === 'true') open = true;
+        var next = !open;
+        filesExpanded[pathKey] = next;
+        btn.setAttribute('aria-expanded', next ? 'true' : 'false');
+        var group = btn.parentElement;
+        var kids = group && group.querySelector(':scope > .agent-chat-files-children');
+        if (kids) kids.classList.toggle('is-open', next);
+        if (next && btn.getAttribute('data-files-lazy') === '1' && kids) {
+            loadLinkedFolderChildren(btn, kids);
+        }
+    }
+
+    function bindAgentChatFilesPanel() {
+        ensureFileIcons();
+        var toggle = document.getElementById('agent-chat-files-toggle');
+        var treeEl = document.getElementById('agent-chat-files-tree');
+        var staleClose = document.getElementById('agent-chat-files-close');
+        if (staleClose && staleClose.parentElement) staleClose.parentElement.removeChild(staleClose);
+        var moreBtn = document.getElementById('agent-file-viewer-more');
+        var moreMenu = document.getElementById('agent-file-viewer-more-menu');
+        var tabsEl = document.getElementById('agent-file-viewer-tabs');
+        if (toggle && !toggle.__agentFilesBound) {
+            toggle.__agentFilesBound = true;
+            toggle.addEventListener('click', function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                toggleAgentChatFilesPanel();
+            });
+        }
+        if (treeEl && !treeEl.__agentFilesBound) {
+            treeEl.__agentFilesBound = true;
+            treeEl.addEventListener('click', onFilesTreeClick);
+        }
+        if (moreBtn && !moreBtn.__agentFilesBound) {
+            moreBtn.__agentFilesBound = true;
+            syncFileViewerMoreLabels();
+            moreBtn.addEventListener('click', toggleFileViewerMoreMenu);
+        }
+        if (moreMenu && !moreMenu.__agentFilesBound) {
+            moreMenu.__agentFilesBound = true;
+            moreMenu.addEventListener('click', onFileViewerMenuAction);
+        }
+        if (!document.__agentFileMoreDocBound) {
+            document.__agentFileMoreDocBound = true;
+            document.addEventListener('click', onDocumentForFileViewerMenu);
+            document.addEventListener('keydown', onDocumentForFileViewerMenu);
+        }
+        if (tabsEl && !tabsEl.__agentFilesBound) {
+            tabsEl.__agentFilesBound = true;
+            tabsEl.addEventListener('click', onFileTabsClick);
+        }
+    }
+
+    window.toggleAgentChatFilesPanel = toggleAgentChatFilesPanel;
+    window.closeAgentChatFilesPanel = closeAgentChatFilesPanel;
+    window.closeAgentFileViewer = closeAgentFileViewer;
+    window.refreshAgentChatFilesPanel = loadAgentChatFilesTree;
+
+    document.addEventListener('DOMContentLoaded', bindAgentChatFilesPanel);
+    window.setTimeout(bindAgentChatFilesPanel, 0);
+
+    document.addEventListener('conversation-changed', function () {
+        closeAgentFileViewer();
+        if (filesPanelOpen) loadAgentChatFilesTree();
+    });
+
+    document.addEventListener('languagechange', function () {
+        if (filesPanelOpen) loadAgentChatFilesTree();
+    });
 })();

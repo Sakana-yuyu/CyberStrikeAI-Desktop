@@ -3455,7 +3455,7 @@ function refreshSystemReadyMessageBubbles() {
     };
     let formattedContent;
     if (typeof window.csMarkdownSanitize !== 'undefined') {
-        formattedContent = window.csMarkdownSanitize.formatMarkdownToHtml(text, { profile: 'chat' });
+        formattedContent = window.csMarkdownSanitize.formatMarkdownToHtml(text, { profile: 'chat', layout: 'agent' });
     } else {
         formattedContent = escapeHtmlLocal(text).replace(/\n/g, '<br>');
     }
@@ -3467,6 +3467,9 @@ function refreshSystemReadyMessageBubbles() {
         if (copyBtn) copyBtn.remove();
         bubble.innerHTML = formattedContent;
         if (typeof wrapTablesInBubble === 'function') wrapTablesInBubble(bubble);
+        if (window.csMarkdownSanitize && window.csMarkdownSanitize.paintAgentMarkdownBubble) {
+            window.csMarkdownSanitize.paintAgentMarkdownBubble(bubble);
+        }
         messageDiv.dataset.originalContent = text;
         appendMessageCopyButton(messageDiv);
     });
@@ -3561,13 +3564,16 @@ function addMessage(role, content, mcpExecutionIds = null, progressId = null, cr
         }
     }
 
-    // 对于用户消息，直接转义HTML，不进行Markdown解析，以保留所有特殊字符
-    if (role === 'user') {
-        formattedContent = escapeHtml(content).replace(/\n/g, '<br>');
+    if (role === 'user' && typeof window.csMarkdownSanitize !== 'undefined') {
+        formattedContent = window.csMarkdownSanitize.formatMarkdownToHtml(content, {
+            profile: 'chat',
+            layout: 'agent',
+            breaks: true
+        });
     } else if (typeof window.csMarkdownSanitize !== 'undefined') {
         formattedContent = window.csMarkdownSanitize.formatMarkdownToHtml(
             role === 'assistant' ? displayContent : content,
-            { profile: 'chat' }
+            { profile: 'chat', layout: 'agent' }
         );
     } else {
         const rawForEscape = role === 'assistant' ? displayContent : content;
@@ -3589,6 +3595,9 @@ function addMessage(role, content, mcpExecutionIds = null, progressId = null, cr
 
     // 为每个表格添加独立的滚动容器
     wrapTablesInBubble(bubble);
+    if ((role === 'assistant' || role === 'user') && window.csMarkdownSanitize && window.csMarkdownSanitize.paintAgentMarkdownBubble) {
+        window.csMarkdownSanitize.paintAgentMarkdownBubble(bubble);
+    }
 
     contentWrapper.appendChild(bubble);
 

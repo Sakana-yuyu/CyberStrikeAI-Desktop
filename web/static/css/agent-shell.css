@@ -869,7 +869,7 @@ html[data-theme="dark"].agent-shell .user-menu-dropdown {
 .agent-chat-topbar {
     display: flex;
     align-items: center;
-    justify-content: flex-start;
+    justify-content: space-between;
     gap: 12px;
     flex-shrink: 0;
     min-height: 48px;
@@ -886,6 +886,833 @@ html[data-theme="dark"].agent-shell .user-menu-dropdown {
     font-weight: 600;
     white-space: nowrap;
     text-overflow: ellipsis;
+}
+
+.agent-chat-files-toggle {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 30px;
+    margin-left: auto;
+    padding: 0 11px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-primary, #ffffff);
+    color: var(--text-secondary);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1;
+    cursor: pointer;
+    touch-action: manipulation;
+    transition:
+        background 0.18s var(--agent-ease, ease),
+        color 0.18s var(--agent-ease, ease),
+        border-color 0.18s var(--agent-ease, ease),
+        transform 0.12s var(--agent-ease, ease);
+}
+
+.agent-chat-files-toggle svg {
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+}
+
+.agent-chat-files-toggle-label {
+    white-space: nowrap;
+}
+
+.agent-chat-files-toggle:hover {
+    background: var(--agent-row-hover, rgba(0, 0, 0, 0.06));
+    color: var(--text-primary);
+}
+
+.agent-chat-files-toggle:active {
+    transform: scale(0.95);
+}
+
+.agent-chat-files-toggle[aria-pressed="true"] {
+    background: rgba(0, 102, 255, 0.08);
+    border-color: rgba(0, 102, 255, 0.28);
+    color: var(--accent-color, #0066ff);
+}
+
+.agent-chat-files-toggle:focus-visible {
+    outline: 2px solid var(--accent-color, #0066ff);
+    outline-offset: 2px;
+}
+
+.agent-chat-body {
+    display: flex;
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.agent-chat-main {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    position: relative;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* —— Right file tree: match Code Work FileBrowserPanel (compact @pierre/trees) —— */
+.agent-chat-files-panel {
+    --trees-density: 0.8;
+    --trees-fg: var(--text-primary, #6c6c71);
+    --trees-fg-muted: var(--text-secondary, #84848a);
+    --trees-bg: var(--bg-primary, #ffffff);
+    --trees-selected-bg: color-mix(in srgb, currentColor 12%, transparent);
+    --trees-hover-bg: color-mix(in srgb, currentColor 7%, transparent);
+    --trees-border: color-mix(in srgb, currentColor 14%, transparent);
+    --trees-font-size: 12px;
+    --trees-row-height: 24px;
+    --trees-level-gap: 6.4px;
+    --trees-icon-width: 16px;
+    --trees-icon-gray: #84848a;
+    --trees-icon-red: #d52c36;
+    --trees-icon-vermilion: #ff8c5b;
+    --trees-icon-orange: #d47628;
+    --trees-icon-yellow: #d5a910;
+    --trees-icon-green: #199f43;
+    --trees-icon-teal: #17a5af;
+    --trees-icon-cyan: #1ca1c7;
+    --trees-icon-blue: #1a85d4;
+    --trees-icon-indigo: #693acf;
+    --trees-icon-purple: #a631be;
+    --trees-icon-pink: #d32a61;
+    --trees-icon-mauve: #594c5b;
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    width: 0;
+    min-width: 0;
+    max-width: 46%;
+    min-height: 0;
+    overflow: hidden;
+    border-left: 1px solid transparent;
+    background: var(--trees-bg);
+    color: var(--trees-fg);
+    font-size: var(--trees-font-size);
+    transform: translateX(24px);
+    transition:
+        width 0.28s var(--agent-ease, cubic-bezier(0.32, 0.72, 0, 1)),
+        min-width 0.28s var(--agent-ease, cubic-bezier(0.32, 0.72, 0, 1)),
+        transform 0.28s var(--agent-ease, cubic-bezier(0.32, 0.72, 0, 1)),
+        border-color 0.28s var(--agent-ease, cubic-bezier(0.32, 0.72, 0, 1));
+}
+
+.agent-chat-files-panel.is-open {
+    width: 22rem;
+    min-width: 16rem;
+    border-left-color: var(--trees-border);
+    transform: translateX(0);
+}
+
+.agent-chat-files-panel[hidden] {
+    display: none !important;
+}
+
+html[data-theme="dark"] .agent-chat-files-panel {
+    --trees-bg: var(--bg-secondary, #141415);
+    --trees-fg: #adadb1;
+    --trees-fg-muted: #84848a;
+    --trees-icon-gray: #adadb1;
+    --trees-icon-red: #ff6762;
+    --trees-icon-orange: #ffa359;
+    --trees-icon-yellow: #ffd452;
+    --trees-icon-green: #5ecc71;
+    --trees-icon-teal: #64d1db;
+    --trees-icon-cyan: #68cdf2;
+    --trees-icon-blue: #69b1ff;
+    --trees-icon-indigo: #9d6afb;
+    --trees-icon-purple: #d568ea;
+    --trees-icon-pink: #ff678d;
+    --trees-icon-mauve: #79697b;
+}
+
+.agent-chat-files-panel-header {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 4px;
+    height: 40px;
+    min-height: 40px;
+    padding: 0 12px;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color, currentColor) 60%, transparent);
+    background: var(--trees-bg);
+}
+
+.agent-chat-files-panel-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--trees-fg);
+}
+
+.agent-chat-files-tree {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    padding: 2px 4px 12px;
+    font-size: var(--trees-font-size);
+    line-height: var(--trees-row-height);
+    color: var(--trees-fg);
+    scrollbar-width: thin;
+}
+
+.agent-chat-files-empty,
+.agent-chat-files-loading,
+.agent-chat-files-error {
+    margin: 0;
+    padding: 16px 12px;
+    color: var(--trees-fg-muted);
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.agent-chat-files-row {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    width: calc(100% - 4px);
+    height: var(--trees-row-height);
+    min-height: var(--trees-row-height);
+    margin: 0 2px;
+    padding: 0 6px;
+    border: 0;
+    border-radius: 5px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: var(--trees-font-size);
+    text-align: left;
+    cursor: pointer;
+    user-select: none;
+}
+
+.agent-chat-files-row:hover {
+    background: var(--trees-hover-bg);
+}
+
+.agent-chat-files-row.is-selected,
+.agent-chat-files-row[aria-selected="true"] {
+    background: var(--trees-selected-bg);
+}
+
+.agent-chat-files-icon {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: var(--trees-icon-width);
+    height: var(--trees-icon-width);
+    color: var(--trees-fg-muted);
+}
+
+.agent-chat-files-lang-icon {
+    display: block;
+    width: 16px;
+    height: 16px;
+    fill: currentColor;
+}
+
+.agent-chat-files-lang-icon.is-chevron {
+    transition: transform 0.12s ease;
+}
+
+.agent-chat-files-row[aria-expanded="false"] .agent-chat-files-lang-icon.is-chevron {
+    transform: rotate(-90deg);
+}
+
+.agent-chat-files-name {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.agent-chat-files-name.is-root {
+    font-weight: 600;
+}
+
+.agent-chat-files-children {
+    display: none;
+}
+
+.agent-chat-files-children.is-open {
+    display: block;
+}
+
+/* Colored language icons (from @pierre/trees complete set / Code Work) */
+.agent-chat-files-tree[data-file-tree-colored-icons="true"] [data-icon-token="html"] { color: var(--trees-icon-orange); }
+.agent-chat-files-tree[data-file-tree-colored-icons="true"] [data-icon-token="css"] { color: var(--trees-icon-indigo); }
+.agent-chat-files-tree[data-file-tree-colored-icons="true"] [data-icon-token="javascript"] { color: var(--trees-icon-yellow); }
+.agent-chat-files-tree[data-file-tree-colored-icons="true"] [data-icon-token="typescript"] { color: var(--trees-icon-blue); }
+.agent-chat-files-tree[data-file-tree-colored-icons="true"] [data-icon-token="react"] { color: var(--trees-icon-cyan); }
+.agent-chat-files-tree[data-file-tree-colored-icons="true"] [data-icon-token="json"] { color: var(--trees-icon-orange); }
+.agent-chat-files-tree[data-file-tree-colored-icons="true"] [data-icon-token="go"] { color: var(--trees-icon-cyan); }
+.agent-chat-files-tree[data-file-tree-colored-icons="true"] [data-icon-token="markdown"] { color: var(--trees-icon-green); }
+.agent-chat-files-tree[data-file-tree-colored-icons="true"] [data-icon-token="python"] { color: var(--trees-icon-blue); }
+.agent-chat-files-tree[data-file-tree-colored-icons="true"] [data-icon-token="vue"] { color: var(--trees-icon-green); }
+.agent-chat-files-tree[data-file-tree-colored-icons="true"] [data-icon-token="yml"] { color: var(--trees-icon-red); }
+.agent-chat-files-tree[data-file-tree-colored-icons="true"] [data-icon-token="rust"] { color: var(--trees-icon-orange); }
+.agent-chat-files-tree[data-file-tree-colored-icons="true"] [data-icon-token="sass"] { color: var(--trees-icon-pink); }
+.agent-chat-files-tree[data-file-tree-colored-icons="true"] [data-icon-token="svg"] { color: var(--trees-icon-orange); }
+.agent-chat-files-tree[data-file-tree-colored-icons="true"] [data-icon-token="image"] { color: var(--trees-icon-pink); }
+.agent-chat-files-tree[data-file-tree-colored-icons="true"] [data-icon-token="docker"] { color: var(--trees-icon-blue); }
+.agent-chat-files-tree[data-file-tree-colored-icons="true"] [data-icon-token="git"] { color: var(--trees-icon-vermilion); }
+.agent-chat-files-tree[data-file-tree-colored-icons="true"] [data-icon-token="default"] { color: var(--trees-icon-gray); }
+.agent-chat-files-tree[data-file-tree-colored-icons="true"] [data-icon-token="text"] { color: var(--trees-icon-gray); }
+.agent-chat-files-tree[data-file-tree-colored-icons="true"] [data-icon-token="bash"] { color: var(--trees-icon-green); }
+.agent-chat-files-tree[data-file-tree-colored-icons="true"] [data-icon-token="c"] { color: var(--trees-icon-blue); }
+.agent-chat-files-tree[data-file-tree-colored-icons="true"] [data-icon-token="cpp"] { color: var(--trees-icon-blue); }
+.agent-chat-files-tree[data-file-tree-colored-icons="true"] [data-icon-token="ruby"] { color: var(--trees-icon-red); }
+.agent-chat-files-tree[data-file-tree-colored-icons="true"] [data-icon-token="svelte"] { color: var(--trees-icon-red); }
+.agent-chat-files-tree[data-file-tree-colored-icons="true"] [data-icon-token="vite"] { color: var(--trees-icon-purple); }
+
+/* —— Center file viewer: Code Work FilePreviewPanel content region —— */
+.agent-file-viewer {
+    display: none;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    background: var(--bg-primary, #ffffff);
+    color: var(--text-primary);
+}
+
+.agent-chat-main.has-file-viewer .agent-file-viewer {
+    display: flex;
+    animation: agentFileViewerIn 0.22s var(--agent-ease, cubic-bezier(0.32, 0.72, 0, 1)) both;
+}
+
+@keyframes agentFileViewerIn {
+    from {
+        opacity: 0;
+        transform: translateX(16px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.agent-chat-main.has-file-viewer #chat-messages,
+.agent-chat-main.has-file-viewer #chat-restore-skeleton,
+.agent-chat-main.has-file-viewer #chat-turn-rail,
+.agent-chat-main.has-file-viewer #chat-return-latest,
+.agent-chat-main.has-file-viewer #agent-plan-progress,
+.agent-chat-main.has-file-viewer #conversation-header,
+.agent-chat-main.has-file-viewer #active-tasks-bar {
+    display: none !important;
+}
+
+.agent-file-viewer[hidden] {
+    display: none !important;
+}
+
+/* Code Work RightPanelTabs-style file cards */
+.agent-file-viewer-tabbar {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 4px;
+    height: 36px;
+    min-height: 36px;
+    padding: 0 8px 0 10px;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color, currentColor) 60%, transparent);
+    background: var(--bg-primary, #ffffff);
+}
+
+.agent-file-viewer-tabs {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+    height: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+}
+
+.agent-file-viewer-tabs::-webkit-scrollbar {
+    display: none;
+}
+
+.agent-file-viewer-more-wrap {
+    position: relative;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+}
+
+.agent-file-viewer-more {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: none;
+    border-radius: 5px;
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+
+.agent-file-viewer-more:hover,
+.agent-file-viewer-more[aria-expanded="true"] {
+    background: color-mix(in srgb, currentColor 7%, transparent);
+    color: var(--text-primary);
+}
+
+.agent-file-viewer-menu {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    z-index: 40;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 10.5rem;
+    max-width: min(16rem, calc(100vw - 24px));
+    padding: 6px;
+    border: 1px solid color-mix(in srgb, var(--border-color, currentColor) 55%, transparent);
+    border-radius: 10px;
+    background: var(--bg-primary, #ffffff);
+    box-shadow:
+        0 10px 28px rgba(15, 23, 42, 0.10),
+        0 0 0 1px color-mix(in srgb, var(--border-color, currentColor) 18%, transparent);
+}
+
+.agent-file-viewer-menu[hidden] {
+    display: none !important;
+}
+
+.agent-file-viewer-menu.is-up {
+    top: auto;
+    bottom: calc(100% + 4px);
+}
+
+.agent-file-viewer-menu-item {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    margin: 0;
+    padding: 8px 10px;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--text-primary);
+    font: inherit;
+    font-size: 12.5px;
+    font-weight: 500;
+    line-height: 1.35;
+    text-align: left;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.agent-file-viewer-menu-item:hover,
+.agent-file-viewer-menu-item:focus-visible {
+    outline: none;
+    background: color-mix(in srgb, currentColor 7%, transparent);
+}
+
+.agent-file-viewer-menu-item:disabled,
+.agent-file-viewer-menu-item[aria-disabled="true"] {
+    opacity: 0.42;
+    cursor: default;
+    pointer-events: none;
+}
+
+html[data-theme="dark"] .agent-file-viewer-menu {
+    background: var(--bg-primary, #0f1115);
+    box-shadow:
+        0 12px 32px rgba(0, 0, 0, 0.45),
+        0 0 0 1px color-mix(in srgb, #fff 8%, transparent);
+}
+
+.agent-file-tab {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 2px;
+    max-width: 9rem;
+    height: 24px;
+    padding: 0 8px 0 6px;
+    border-radius: 6px;
+    color: var(--text-secondary);
+    font-size: 12px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.agent-file-tab:hover {
+    background: color-mix(in srgb, currentColor 8%, transparent);
+    color: var(--text-primary);
+}
+
+.agent-file-tab.is-active {
+    background: color-mix(in srgb, var(--accent-color, #0066ff) 12%, transparent);
+    color: var(--text-primary);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-color, #0066ff) 28%, transparent);
+}
+
+.agent-file-tab-close {
+    position: relative;
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    padding: 0;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+}
+
+.agent-file-tab-close:hover {
+    background: color-mix(in srgb, currentColor 12%, transparent);
+}
+
+.agent-file-tab-icon {
+    display: inline-flex;
+    width: 12px;
+    height: 12px;
+}
+
+.agent-file-tab-icon .agent-chat-files-lang-icon {
+    width: 12px;
+    height: 12px;
+}
+
+.agent-file-tab-x {
+    display: none;
+}
+
+.agent-file-tab:hover .agent-file-tab-icon,
+.agent-file-tab-close:focus-visible .agent-file-tab-icon {
+    display: none;
+}
+
+.agent-file-tab:hover .agent-file-tab-x,
+.agent-file-tab-close:focus-visible .agent-file-tab-x {
+    display: block;
+}
+
+.agent-file-tab-label {
+    display: inline-flex;
+    min-width: 0;
+    max-width: 7rem;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+}
+
+.agent-file-tab-name {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.agent-file-viewer-bar {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 8px;
+    height: 32px;
+    min-height: 32px;
+    padding: 0 12px;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color, currentColor) 50%, transparent);
+    background: var(--bg-primary, #ffffff);
+}
+
+.agent-file-viewer-crumbs {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    min-width: 0;
+    overflow: hidden;
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.agent-file-viewer-crumb {
+    display: inline-flex;
+    align-items: center;
+    min-width: 0;
+    max-width: 10rem;
+    overflow: hidden;
+    color: var(--text-secondary);
+    text-overflow: ellipsis;
+}
+
+.agent-file-viewer-crumb.is-file {
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.agent-file-viewer-sep {
+    flex-shrink: 0;
+    margin: 0 4px;
+    color: color-mix(in srgb, var(--text-secondary) 60%, transparent);
+}
+
+.agent-file-viewer-close {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: none;
+    border-radius: 5px;
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+
+.agent-file-viewer-close:hover {
+    background: color-mix(in srgb, currentColor 7%, transparent);
+    color: var(--text-primary);
+}
+
+.agent-file-viewer-body {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    background: var(--bg-primary, #ffffff);
+}
+
+/* Empty / loading / error: centered in the full body */
+.agent-file-viewer-body.is-status {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.agent-file-viewer-empty,
+.agent-file-viewer-loading,
+.agent-file-viewer-error {
+    margin: 0;
+    padding: 16px 24px;
+    max-width: 28rem;
+    color: var(--text-secondary);
+    font-size: 13px;
+    line-height: 1.55;
+    text-align: center;
+}
+
+.agent-file-viewer-error {
+    color: #b42318;
+}
+
+.agent-file-viewer-md {
+    box-sizing: border-box;
+    max-width: 46rem;
+    margin: 0 auto;
+    padding: 20px 28px 40px;
+    color: var(--text-primary);
+    font-size: 14px;
+    line-height: 1.65;
+}
+
+.agent-file-viewer-md > :first-child {
+    margin-top: 0;
+}
+
+.agent-file-viewer-md h1,
+.agent-file-viewer-md h2,
+.agent-file-viewer-md h3,
+.agent-file-viewer-md h4,
+.agent-file-viewer-md h5,
+.agent-file-viewer-md h6 {
+    margin: 1.35em 0 0.55em;
+    font-weight: 650;
+    line-height: 1.3;
+    letter-spacing: -0.01em;
+    color: var(--text-primary);
+}
+
+.agent-file-viewer-md h1 {
+    font-size: 1.55rem;
+    padding-bottom: 0.35em;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color, currentColor) 55%, transparent);
+}
+
+.agent-file-viewer-md h2 {
+    font-size: 1.28rem;
+}
+
+.agent-file-viewer-md h3 {
+    font-size: 1.1rem;
+}
+
+.agent-file-viewer-md p,
+.agent-file-viewer-md ul,
+.agent-file-viewer-md ol,
+.agent-file-viewer-md blockquote,
+.agent-file-viewer-md pre,
+.agent-file-viewer-md table {
+    margin: 0 0 0.95em;
+}
+
+.agent-file-viewer-md ul,
+.agent-file-viewer-md ol {
+    padding-left: 1.4em;
+}
+
+.agent-file-viewer-md li + li {
+    margin-top: 0.25em;
+}
+
+.agent-file-viewer-md a {
+    color: var(--accent-color, #0066ff);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.agent-file-viewer-md blockquote {
+    padding: 0.15em 0 0.15em 0.9em;
+    border-left: 3px solid color-mix(in srgb, var(--accent-color, #0066ff) 45%, transparent);
+    color: var(--text-secondary);
+}
+
+.agent-file-viewer-md code {
+    padding: 0.12em 0.35em;
+    border-radius: 4px;
+    background: color-mix(in srgb, currentColor 7%, transparent);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 0.9em;
+}
+
+.agent-file-viewer-md pre {
+    overflow: auto;
+    padding: 12px 14px;
+    border-radius: 8px;
+    border: 1px solid color-mix(in srgb, var(--border-color, currentColor) 50%, transparent);
+    background: color-mix(in srgb, currentColor 4%, transparent);
+}
+
+.agent-file-viewer-md pre code {
+    padding: 0;
+    background: transparent;
+    font-size: 12.5px;
+    line-height: 1.55;
+}
+
+.agent-file-viewer-md table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    overflow: auto;
+    display: block;
+}
+
+.agent-file-viewer-md th,
+.agent-file-viewer-md td {
+    padding: 8px 10px;
+    border: 1px solid color-mix(in srgb, var(--border-color, currentColor) 55%, transparent);
+    text-align: left;
+}
+
+.agent-file-viewer-md th {
+    background: color-mix(in srgb, currentColor 5%, transparent);
+    font-weight: 600;
+}
+
+.agent-file-viewer-md img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 6px;
+}
+
+.agent-file-md-img-fallback {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: color-mix(in srgb, currentColor 6%, transparent);
+    color: var(--text-secondary);
+    font-size: 12px;
+}
+
+.agent-file-viewer-code {
+    display: block;
+    margin: 0;
+    padding: 12px 0 24px;
+    overflow: visible;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 12px;
+    line-height: 20px;
+    tab-size: 4;
+    white-space: pre;
+}
+
+.agent-file-viewer-code .agent-file-line {
+    display: flex;
+    min-width: 100%;
+    padding: 0 16px 0 0;
+}
+
+.agent-file-viewer-code .agent-file-gutter {
+    flex-shrink: 0;
+    width: 48px;
+    padding-right: 12px;
+    color: var(--text-secondary);
+    opacity: 0.55;
+    text-align: right;
+    user-select: none;
+}
+
+.agent-file-viewer-code .agent-file-text {
+    flex: 1;
+    min-width: 0;
+    white-space: pre;
+}
+
+html[data-theme="dark"] .agent-file-viewer,
+html[data-theme="dark"] .agent-file-viewer-tabbar,
+html[data-theme="dark"] .agent-file-viewer-bar,
+html[data-theme="dark"] .agent-file-viewer-body {
+    background: var(--bg-primary, #0f1115);
+}
+
+html[data-theme="dark"] .agent-file-tab.is-active {
+    background: color-mix(in srgb, #60a5fa 16%, transparent);
+}
+
+.agent-file-viewer-image-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100%;
+    padding: 16px;
+    box-sizing: border-box;
+}
+
+.agent-file-viewer-image-wrap img {
+    max-width: 100%;
+    max-height: calc(100vh - 220px);
+    object-fit: contain;
 }
 
 .agent-terminal-close {
@@ -1198,6 +2025,13 @@ html[data-theme="dark"] .cm-stage[data-open="true"] .cm-body {
 }
 
 @media (prefers-reduced-motion: reduce) {
+    .agent-chat-files-panel,
+    .agent-chat-files-toggle {
+        transition: none;
+    }
+    .agent-file-viewer {
+        animation: none !important;
+    }
     .cm-body,
     .cm-pill,
     .cm-item,
@@ -1756,4 +2590,265 @@ html[data-theme="dark"].agent-shell #conversation-sidebar .conversation-item:hov
 html[data-theme="dark"].agent-shell #conversation-sidebar .conversation-item.active {
     background: rgba(255, 255, 255, 0.06) !important;
     box-shadow: none !important;
+}
+
+/* Agent text, matched to CodeWork chat-markdown: flat prose, modest headings,
+   fenced blocks with a language bar, tables that scroll instead of stretching. */
+html.agent-shell .message.assistant .message-content {
+    max-width: min(100%, 768px);
+}
+
+html.agent-shell .message.user .message-content {
+    max-width: min(80%, 640px);
+}
+
+html.agent-shell .message-bubble.chat-markdown {
+    font-size: 14px;
+    line-height: 1.65;
+}
+
+html.agent-shell .message.assistant .message-bubble.chat-markdown {
+    padding: 0;
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+}
+
+html.agent-shell .message.user .message-bubble.chat-markdown {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: 1px solid transparent;
+    border-radius: 16px;
+    box-shadow: none;
+    padding: 12px 14px;
+}
+
+html.agent-shell .message.user .message-bubble.chat-markdown a,
+html.agent-shell .message.user .message-bubble.chat-markdown table,
+html.agent-shell .message.user .message-bubble.chat-markdown th,
+html.agent-shell .message.user .message-bubble.chat-markdown td,
+html.agent-shell .message.user .message-bubble.chat-markdown code,
+html.agent-shell .message.user .message-bubble.chat-markdown pre {
+    color: var(--text-primary);
+}
+
+html.agent-shell .message-bubble.chat-markdown > :first-child {
+    margin-top: 0;
+}
+
+html.agent-shell .message-bubble.chat-markdown > :last-child {
+    margin-bottom: 0;
+}
+
+html.agent-shell .message-bubble.chat-markdown p,
+html.agent-shell .message-bubble.chat-markdown ul,
+html.agent-shell .message-bubble.chat-markdown ol,
+html.agent-shell .message-bubble.chat-markdown blockquote {
+    margin: 0.65rem 0;
+}
+
+html.agent-shell .message-bubble.chat-markdown h1,
+html.agent-shell .message-bubble.chat-markdown h2,
+html.agent-shell .message-bubble.chat-markdown h3,
+html.agent-shell .message-bubble.chat-markdown h4,
+html.agent-shell .message-bubble.chat-markdown h5,
+html.agent-shell .message-bubble.chat-markdown h6 {
+    margin: 1.25rem 0 0.5rem;
+    font-weight: 600;
+    line-height: 1.3;
+    color: var(--text-primary);
+}
+
+html.agent-shell .message-bubble.chat-markdown h1 { font-size: 1.25rem; }
+html.agent-shell .message-bubble.chat-markdown h2 { font-size: 1.125rem; }
+html.agent-shell .message-bubble.chat-markdown h3 { font-size: 1rem; }
+html.agent-shell .message-bubble.chat-markdown h4,
+html.agent-shell .message-bubble.chat-markdown h5,
+html.agent-shell .message-bubble.chat-markdown h6 { font-size: 0.875rem; }
+
+html.agent-shell .message-bubble.chat-markdown ul {
+    padding-left: 1.25rem;
+    list-style-type: disc;
+}
+
+html.agent-shell .message-bubble.chat-markdown ol {
+    padding-left: 1.25rem;
+    list-style-type: decimal;
+}
+
+html.agent-shell .message-bubble.chat-markdown ul ul { list-style-type: circle; }
+html.agent-shell .message-bubble.chat-markdown ul ul ul { list-style-type: square; }
+html.agent-shell .message-bubble.chat-markdown ol ol { list-style-type: lower-alpha; }
+
+html.agent-shell .message-bubble.chat-markdown li + li {
+    margin-top: 0.25rem;
+}
+
+html.agent-shell .message-bubble.chat-markdown li:has(> input[type="checkbox"]) {
+    list-style: none;
+    margin-left: -1.25rem;
+}
+
+html.agent-shell .message-bubble.chat-markdown li input[type="checkbox"] {
+    margin: 0 0.4em 0.12em 0;
+    vertical-align: middle;
+}
+
+html.agent-shell .message-bubble.chat-markdown a {
+    color: var(--accent-color);
+    text-decoration: none;
+}
+
+html.agent-shell .message-bubble.chat-markdown a:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+html.agent-shell .message-bubble.chat-markdown blockquote {
+    border-left: 2px solid rgba(15, 23, 42, 0.16);
+    padding-left: 0.8rem;
+    color: var(--text-secondary);
+}
+
+html.agent-shell .message-bubble.chat-markdown :not(pre) > code {
+    border: 1px solid rgba(15, 23, 42, 0.1);
+    border-radius: 6px;
+    background: rgba(15, 23, 42, 0.05);
+    padding: 0.1rem 0.35rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.75rem;
+}
+
+html.agent-shell .message.user .message-bubble.chat-markdown :not(pre) > code {
+    background: rgba(15, 23, 42, 0.06);
+}
+
+html.agent-shell .chat-markdown-codeblock {
+    margin: 0.65rem 0;
+    overflow: hidden;
+    border: 1px solid rgba(15, 23, 42, 0.1);
+    border-radius: 12px;
+    background: #f4f5f7;
+    line-height: 1.45;
+}
+
+html.agent-shell .chat-markdown-codeblock-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 6px 0 12px;
+    user-select: none;
+    color: rgba(26, 26, 26, 0.68);
+}
+
+html.agent-shell .chat-markdown-codeblock-lang {
+    min-width: 0;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 11px;
+}
+
+html.agent-shell .chat-markdown-codeblock-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+html.agent-shell .chat-markdown-chrome-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: rgba(26, 26, 26, 0.62);
+    cursor: pointer;
+}
+
+html.agent-shell .chat-markdown-chrome-action:hover,
+html.agent-shell .chat-markdown-chrome-action[aria-pressed="true"],
+html.agent-shell .chat-markdown-chrome-action.is-copied {
+    color: var(--text-primary);
+    background: rgba(15, 23, 42, 0.06);
+}
+
+html.agent-shell .message.assistant .message-bubble.chat-markdown pre,
+html.agent-shell .message.user .message-bubble.chat-markdown pre,
+html.agent-shell .chat-markdown-codeblock pre {
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    padding: 8px 12px 12px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    line-height: 1.5;
+    white-space: pre;
+    overflow-x: auto;
+}
+
+html.agent-shell .chat-markdown-codeblock pre code {
+    background: transparent;
+    border: 0;
+    padding: 0;
+    font-size: inherit;
+    font-family: inherit;
+}
+
+html.agent-shell .chat-markdown-codeblock[data-wrap="true"] pre {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+html.agent-shell .message-bubble.chat-markdown .table-wrapper {
+    margin: 0.65rem 0;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    border-radius: 12px;
+    overflow: auto;
+}
+
+html.agent-shell .message-bubble.chat-markdown table {
+    min-width: max-content;
+    font-size: 0.75rem;
+}
+
+html.agent-shell .message-bubble.chat-markdown table th {
+    white-space: nowrap;
+    background: transparent;
+    border-bottom: 1px solid rgba(15, 23, 42, 0.12);
+    padding: 0.55rem 0.75rem;
+}
+
+html.agent-shell .message-bubble.chat-markdown table td {
+    min-width: 0;
+    max-width: 24rem;
+    white-space: normal;
+    padding: 0.45rem 0.75rem;
+    border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+html[data-theme="dark"].agent-shell .message-bubble.chat-markdown :not(pre) > code {
+    border-color: rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-primary);
+}
+
+html[data-theme="dark"].agent-shell .chat-markdown-codeblock {
+    border-color: transparent;
+    background: rgba(255, 255, 255, 0.06);
+}
+
+html[data-theme="dark"].agent-shell .chat-markdown-codeblock-header,
+html[data-theme="dark"].agent-shell .chat-markdown-chrome-action {
+    color: rgba(229, 231, 235, 0.72);
+}
+
+html[data-theme="dark"].agent-shell .message-bubble.chat-markdown blockquote,
+html[data-theme="dark"].agent-shell .message-bubble.chat-markdown .table-wrapper,
+html[data-theme="dark"].agent-shell .message-bubble.chat-markdown table th,
+html[data-theme="dark"].agent-shell .message-bubble.chat-markdown table td {
+    border-color: rgba(255, 255, 255, 0.12);
 }

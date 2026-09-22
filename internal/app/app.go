@@ -1284,6 +1284,8 @@ func setupRoutes(
 		}
 		protected.GET("/projects/:id/stats", projectHandler.GetProjectStats)
 		protected.GET("/projects/:id/conversations", projectHandler.ListProjectConversations)
+		protected.GET("/projects/:id/linked-tree", projectHandler.ListLinkedTree)
+		protected.GET("/projects/:id/linked-file", projectHandler.ReadLinkedFile)
 		protected.GET("/projects/:id", projectHandler.GetProject)
 		protected.PUT("/projects/:id", projectHandler.UpdateProject)
 		protected.DELETE("/projects/:id", projectHandler.DeleteProject)

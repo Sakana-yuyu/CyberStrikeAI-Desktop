@@ -129,3 +129,142 @@ func TestLinkFolderToExistingProjectRespectsAccess(t *testing.T) {
 func contains(s, sub string) bool {
 	return strings.Contains(s, sub)
 }
+
+func TestListLinkedTreeListsRootAndBlocksTraversal(t *testing.T) {
+	db, router, localDir := newProjectLinkTestEnv(t)
+	h := NewProjectHandler(db, zap.NewNop())
+	router.GET("/api/projects/:id/linked-tree", h.ListLinkedTree)
+	router.GET("/api/projects/:id/linked-file", h.ReadLinkedFile)
+
+	resp := postLinkFolder(t, router, `{"path":"`+filepath.ToSlash(localDir)+`"}`)
+	if resp.Code != http.StatusOK {
+		t.Fatalf("link failed: %d %s", resp.Code, resp.Body.String())
+	}
+	var linked struct {
+		ProjectID string `json:"projectId"`
+	}
+	if err := decodeJSON(resp, &linked); err != nil {
+		t.Fatal(err)
+	}
+
+	// noisy dirs should be skipped
+	_ = os.MkdirAll(filepath.Join(localDir, ".git"), 0755)
+	_ = os.MkdirAll(filepath.Join(localDir, "node_modules"), 0755)
+	_ = os.WriteFile(filepath.Join(localDir, "app.go"), []byte("package main"), 0644)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/projects/"+linked.ProjectID+"/linked-tree", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("list root: %d %s", w.Code, w.Body.String())
+	}
+	var tree linkedTreeResponse
+	if err := decodeJSON(w, &tree); err != nil {
+		t.Fatal(err)
+	}
+	if !tree.Linked || tree.RootName != "LocalProject" {
+		t.Fatalf("unexpected tree meta: %+v", tree)
+	}
+	names := map[string]string{}
+	for _, e := range tree.Entries {
+		names[e.Name] = e.Type
+	}
+	if names["README.md"] != "file" || names["sub"] != "dir" || names["app.go"] != "file" {
+		t.Fatalf("missing expected entries: %+v", tree.Entries)
+	}
+	if _, ok := names[".git"]; ok {
+		t.Fatalf(".git should be skipped")
+	}
+	if _, ok := names["node_modules"]; ok {
+		t.Fatalf("node_modules should be skipped")
+	}
+
+	// child path
+	req = httptest.NewRequest(http.MethodGet, "/api/projects/"+linked.ProjectID+"/linked-tree?path=sub", nil)
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("list child: %d %s", w.Code, w.Body.String())
+	}
+	if err := decodeJSON(w, &tree); err != nil {
+		t.Fatal(err)
+	}
+	if tree.Path != "sub" {
+		t.Fatalf("want path=sub, got %q", tree.Path)
+	}
+
+	// traversal blocked
+	req = httptest.NewRequest(http.MethodGet, "/api/projects/"+linked.ProjectID+"/linked-tree?path=../", nil)
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("traversal should 400, got %d: %s", w.Code, w.Body.String())
+	}
+
+	// read text file
+	req = httptest.NewRequest(http.MethodGet, "/api/projects/"+linked.ProjectID+"/linked-file?path=README.md", nil)
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("read file: %d %s", w.Code, w.Body.String())
+	}
+	var file linkedFileResponse
+	if err := decodeJSON(w, &file); err != nil {
+		t.Fatal(err)
+	}
+	if !file.Linked || file.Kind != "text" || file.Content != "# demo" || file.Language != "md" {
+		t.Fatalf("unexpected file payload: %+v", file)
+	}
+
+	// read traversal blocked
+	req = httptest.NewRequest(http.MethodGet, "/api/projects/"+linked.ProjectID+"/linked-file?path=../README.md", nil)
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("file traversal should 400, got %d: %s", w.Code, w.Body.String())
+	}
+
+	// too large
+	big := make([]byte, linkedFileMaxBytes+1)
+	for i := range big {
+		big[i] = 'a'
+	}
+	if err := os.WriteFile(filepath.Join(localDir, "huge.txt"), big, 0644); err != nil {
+		t.Fatal(err)
+	}
+	req = httptest.NewRequest(http.MethodGet, "/api/projects/"+linked.ProjectID+"/linked-file?path=huge.txt", nil)
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("huge file status: %d %s", w.Code, w.Body.String())
+	}
+	file = linkedFileResponse{}
+	if err := decodeJSON(w, &file); err != nil {
+		t.Fatal(err)
+	}
+	if file.Kind != "too_large" || file.Content != "" {
+		t.Fatalf("expected too_large without content, got %+v", file)
+	}
+}
+
+func TestListLinkedTreeUnlinkedReturnsFalse(t *testing.T) {
+	db, router, _ := newProjectLinkTestEnv(t)
+	router.GET("/api/projects/:id/linked-tree", NewProjectHandler(db, zap.NewNop()).ListLinkedTree)
+	p, err := db.CreateProject(&database.Project{Name: "NoLink"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodGet, "/api/projects/"+p.ID+"/linked-tree", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", w.Code, w.Body.String())
+	}
+	var tree linkedTreeResponse
+	if err := decodeJSON(w, &tree); err != nil {
+		t.Fatal(err)
+	}
+	if tree.Linked {
+		t.Fatalf("expected linked=false")
+	}
+}
