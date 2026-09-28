@@ -33,6 +33,13 @@ func (f *fakeTurnLoopRuntimeControl) PushInterruptContinue(note string) bool {
 	return f.pushOK
 }
 
+func (f *fakeTurnLoopRuntimeControl) PushGuidance(note string) bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.pushedNotes = append(f.pushedNotes, note)
+	return f.pushOK
+}
+
 func (f *fakeTurnLoopRuntimeControl) StopImmediate(cause string) {
 	f.mu.Lock()
 	defer f.mu.Unlock()

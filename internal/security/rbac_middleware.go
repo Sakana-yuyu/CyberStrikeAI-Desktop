@@ -111,6 +111,10 @@ func permissionForRequest(method, fullPath string) string {
 			return crudPermission(method, "agents")
 		}
 		return "agent:execute"
+	case path == "/chat/question":
+		return "chat:read"
+	case path == "/chat/question/answer", path == "/agent-loop/guide":
+		return "agent:execute"
 	case strings.HasPrefix(path, "/hitl"):
 		if method == http.MethodGet || method == http.MethodHead {
 			return "hitl:read"

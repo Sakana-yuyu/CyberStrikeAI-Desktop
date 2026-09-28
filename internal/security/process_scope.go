@@ -183,10 +183,11 @@ func StartManagedBackground(ctx context.Context, shell, command, dir string) (*S
 	if ProcessScopeFromContext(ctx) == nil {
 		return nil, ErrBackgroundNeedsTask
 	}
-	cmd := exec.Command(shell, "-c", PrepareShellCommandForExecute(command))
+	command = PrepareShellCommandForExecute(command)
+	cmd := exec.Command(shell, agentShellArgs(shell, command)...)
 	cmd.Dir = dir
 	ConfigureShellCmdForAgentExecute(cmd)
-	// Nil output streams use /dev/null; background output cannot hold tool pipes.
+	// 空输出流使用当前平台的空设备，避免后台输出占住工具管道。
 	session, err := StartShellSessionContext(ctx, cmd)
 	if err != nil {
 		return nil, err

@@ -3444,6 +3444,20 @@ function handleStreamEvent(event, progressElement, progressId,
             } catch (e) {}
             break;
         }
+        case 'user_question': {
+            if (typeof window.showChatQuestion === 'function') window.showChatQuestion(event.data || {});
+            addTimelineItem(timeline, 'progress', {
+                title: '等待用户回答', message: event.message, data: event.data || {}
+            });
+            break;
+        }
+        case 'user_question_answered': {
+            if (typeof window.clearChatQuestion === 'function') window.clearChatQuestion(event.data || {});
+            addTimelineItem(timeline, 'progress', {
+                title: '用户已回答', message: event.message, data: event.data || {}
+            });
+            break;
+        }
         case 'hitl_resumed': {
             hitlPendingInterruptTracker.remove(event.data && event.data.interruptId);
             hitlPendingInterruptTracker.ready = true;

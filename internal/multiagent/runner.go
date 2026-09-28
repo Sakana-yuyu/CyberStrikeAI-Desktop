@@ -325,6 +325,9 @@ func RunDeepAgent(
 	if err != nil {
 		return nil, err
 	}
+	if userQuestionAskFromContext(ctx) != nil {
+		mainTools = appendUserQuestionTool(mainTools)
+	}
 	var mainToolsForCfg []tool.BaseTool
 	var mainToolSearchActive bool
 	var mainAgenticOrchestratorPre []adk.TypedChatModelAgentMiddleware[*schema.AgenticMessage]
@@ -334,6 +337,9 @@ func RunDeepAgent(
 	}
 
 	orchInstruction = project.AppendSystemPromptBlock(orchInstruction, systemPromptExtra)
+	if userQuestionAskFromContext(ctx) != nil {
+		orchInstruction = project.AppendSystemPromptBlock(orchInstruction, "执行中若确实缺少关键用户决策且无法从上下文推断，可调用 ask_user 给出清晰问题及 2 到 4 个互斥选项；用户也能自行输入。收到回答后继续当前任务。不要为普通可自行决定的细节频繁提问。")
+	}
 	orchInstruction = project.AppendVisionImageAnalysisIfReady(orchInstruction, appCfg.Vision.Ready())
 	orchInstruction = injectToolNamesOnlyInstruction(ctx, orchInstruction, mainTools, mainToolSearchActive)
 	if logger != nil {

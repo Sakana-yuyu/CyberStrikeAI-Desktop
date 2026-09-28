@@ -71,3 +71,12 @@ desktop.ini
 # Desktop build artifacts
 cmd/desktop/resource_windows_amd64.syso
 cmd/desktop/icon.ico
+desktop.exe
+
+# Local test tooling and artifacts
+.playwright-cli/
+output/
+NUL
+
+# Codex loop runtime state
+.loop-state

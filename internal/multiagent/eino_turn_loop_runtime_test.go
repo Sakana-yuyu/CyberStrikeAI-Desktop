@@ -191,6 +191,46 @@ func TestEinoTurnLoopRuntimePushInterruptStartsNextTurn(t *testing.T) {
 	}
 }
 
+func TestEinoTurnLoopRuntimeGuidanceWaitsForCurrentTurn(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	model := newTurnLoopBlockingModel()
+	agent, err := adk.NewChatModelAgent(ctx, &adk.ChatModelAgentConfig{Name: "guide-agent", Model: model})
+	if err != nil {
+		t.Fatal(err)
+	}
+	runtime := NewEinoTurnLoopRuntime(EinoTurnLoopRuntimeConfig{Agent: agent, InitialMessages: []*schema.Message{schema.UserMessage("initial")}})
+	runtime.Run(ctx)
+	runtime.StopWhenIdle()
+	select {
+	case <-model.started:
+	case <-ctx.Done():
+		t.Fatal("first turn did not start")
+	}
+	if !runtime.PushGuidance("先检查认证") {
+		t.Fatal("guidance rejected")
+	}
+	select {
+	case <-model.started:
+		t.Fatal("guidance interrupted current turn")
+	case <-time.After(80 * time.Millisecond):
+	}
+	close(model.release)
+	select {
+	case <-model.started:
+	case <-ctx.Done():
+		t.Fatal("guided turn did not start")
+	}
+	state := runtime.Wait()
+	if state == nil || state.ExitReason != nil {
+		t.Fatalf("turn loop exit = %#v", state)
+	}
+	inputs := model.snapshotInputs()
+	if len(inputs) < 2 || !strings.Contains(inputs[len(inputs)-1][len(inputs[len(inputs)-1])-1].Content, "先检查认证") {
+		t.Fatalf("guidance missing from next turn: %#v", inputs)
+	}
+}
+
 func TestMergeEinoTurnLoopMessagesClonesInput(t *testing.T) {
 	original := schema.UserMessage("hello")
 	msgs := mergeEinoTurnLoopMessages([]EinoTurnLoopItem{{Messages: []*schema.Message{original}}})

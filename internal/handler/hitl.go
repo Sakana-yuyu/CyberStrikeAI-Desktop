@@ -150,10 +150,12 @@ SELECT msg.id, msg.conversation_id,
            FROM hitl_interrupts hi
            WHERE hi.message_id = msg.id
        ), (
-           SELECT MIN(later.created_at)
+           SELECT later.created_at
            FROM messages later
            WHERE later.conversation_id = msg.conversation_id
-             AND later.created_at > msg.created_at
+             AND (later.created_at > msg.created_at
+                  OR (later.created_at = msg.created_at AND later.rowid > msg.rowid))
+           ORDER BY later.created_at ASC, later.rowid ASC LIMIT 1
        ), (
            SELECT MAX(pd.created_at)
            FROM process_details pd
@@ -177,7 +179,8 @@ WHERE msg.role = 'assistant'
       OR EXISTS (
           SELECT 1 FROM messages later
           WHERE later.conversation_id = msg.conversation_id
-            AND later.created_at > msg.created_at
+            AND (later.created_at > msg.created_at
+                 OR (later.created_at = msg.created_at AND later.rowid > msg.rowid))
       )
   )`)
 	if err != nil {
@@ -943,6 +946,9 @@ func (h *AgentHandler) DismissHITLInterrupt(c *gin.Context) {
 }
 
 func (h *AgentHandler) interceptHITLForEinoTool(runCtx context.Context, cancelRun context.CancelCauseFunc, conversationID, assistantMessageID string, sendEventFunc func(eventType, message string, data interface{}), toolName, arguments string) (string, error) {
+	if toolName == "ask_user" {
+		return arguments, nil
+	}
 	payload := map[string]interface{}{
 		"toolName":   toolName,
 		"arguments":  arguments,

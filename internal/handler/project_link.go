@@ -171,7 +171,7 @@ func (h *ProjectHandler) PickFolder(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "仅桌面端支持选择本地文件夹"})
 		return
 	}
-	if !isLoopbackClientIP(c.ClientIP()) {
+	if !security.IsLoopbackRemoteAddr(c.Request.RemoteAddr) {
 		c.JSON(http.StatusForbidden, gin.H{"error": "仅允许本机桌面窗口使用"})
 		return
 	}

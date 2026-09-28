@@ -43,6 +43,53 @@ func TestClaimNextPendingTaskParallel(t *testing.T) {
 	_ = t3
 }
 
+func TestSetTaskCancelAfterPauseCancelsBeforeRegistration(t *testing.T) {
+	m := NewBatchTaskManager(zap.NewNop())
+	queue, err := m.CreateBatchQueue("test", "", "eino_single", "manual", "", "", nil, 1, []string{"a"})
+	if err != nil {
+		t.Fatalf("CreateBatchQueue: %v", err)
+	}
+	m.UpdateQueueStatus(queue.ID, BatchQueueStatusRunning)
+	task, ok := m.ClaimNextPendingTask(queue.ID)
+	if !ok {
+		t.Fatal("expected a claimed task")
+	}
+	if !m.PauseQueue(queue.ID) {
+		t.Fatal("expected queue to pause")
+	}
+
+	cancelled := false
+	if m.SetTaskCancel(queue.ID, task.ID, func() { cancelled = true }) {
+		t.Fatal("cancel registration after pause should be rejected")
+	}
+	if !cancelled {
+		t.Fatal("late cancellation function should be invoked immediately")
+	}
+}
+
+func TestPauseQueueCancelsRegisteredTask(t *testing.T) {
+	m := NewBatchTaskManager(zap.NewNop())
+	queue, err := m.CreateBatchQueue("test", "", "eino_single", "manual", "", "", nil, 1, []string{"a"})
+	if err != nil {
+		t.Fatalf("CreateBatchQueue: %v", err)
+	}
+	m.UpdateQueueStatus(queue.ID, BatchQueueStatusRunning)
+	task, ok := m.ClaimNextPendingTask(queue.ID)
+	if !ok {
+		t.Fatal("expected a claimed task")
+	}
+	cancelled := false
+	if !m.SetTaskCancel(queue.ID, task.ID, func() { cancelled = true }) {
+		t.Fatal("expected cancellation function to register")
+	}
+	if !m.PauseQueue(queue.ID) {
+		t.Fatal("expected queue to pause")
+	}
+	if !cancelled {
+		t.Fatal("pause should cancel the registered task")
+	}
+}
+
 func TestBatchQueueExecutionShouldStop(t *testing.T) {
 	t.Parallel()
 	if !batchQueueExecutionShouldStop(nil, false) {

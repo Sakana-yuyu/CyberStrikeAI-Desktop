@@ -1,6 +1,7 @@
 package security
 
 import (
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -42,7 +43,14 @@ func TestRedirectBackgroundJobStdio_skipsAndAnd(t *testing.T) {
 }
 
 func TestPrepareShellCommandForExecute(t *testing.T) {
-	out := PrepareShellCommandForExecute("java -jar x & echo hi")
+	input := "java -jar x & echo hi"
+	out := PrepareShellCommandForExecute(input)
+	if runtime.GOOS == "windows" {
+		if out != input {
+			t.Fatalf("Windows command should not receive POSIX redirection: %q", out)
+		}
+		return
+	}
 	if !strings.Contains(out, "exec </dev/null") {
 		t.Fatalf("missing stdin redirect: %q", out)
 	}

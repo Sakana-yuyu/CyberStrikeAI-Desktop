@@ -84,6 +84,19 @@ func TestDesktopSessionRejectsWrongTokenAndNonLoopback(t *testing.T) {
 	}
 }
 
+func TestDesktopSessionRejectsForwardedLoopbackFromRemotePeer(t *testing.T) {
+	_, router := newDesktopSessionTestEnv(t, true, "bootstrap-secret-token")
+	req := httptest.NewRequest(http.MethodPost, "/api/auth/desktop-session", strings.NewReader(`{"desktop_token":"bootstrap-secret-token"}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Forwarded-For", "127.0.0.1")
+	req.RemoteAddr = "192.0.2.7:54321"
+	resp := httptest.NewRecorder()
+	router.ServeHTTP(resp, req)
+	if resp.Code != http.StatusForbidden {
+		t.Fatalf("forwarded loopback must not override remote peer, got %d: %s", resp.Code, resp.Body.String())
+	}
+}
+
 func TestDesktopSessionDisabledOutsideDesktopMode(t *testing.T) {
 	_, router := newDesktopSessionTestEnv(t, false, "bootstrap-secret-token")
 	resp := postDesktopSession(router, "bootstrap-secret-token", "127.0.0.1:54321")

@@ -1742,6 +1742,33 @@ func (h *OpenAPIHandler) GetOpenAPISpec(c *gin.Context) {
 					},
 				},
 			},
+			"/api/chat/question": map[string]interface{}{
+				"get": map[string]interface{}{
+					"tags": []string{"对话交互"}, "summary": "查询待回答问题", "operationId": "getPendingChatQuestion",
+					"parameters": []interface{}{map[string]interface{}{"name": "conversationId", "in": "query", "required": true, "schema": map[string]interface{}{"type": "string"}}},
+					"responses":  map[string]interface{}{"200": map[string]interface{}{"description": "当前会话的问题，空值表示无待回答问题"}},
+				},
+			},
+			"/api/chat/question/answer": map[string]interface{}{
+				"post": map[string]interface{}{
+					"tags": []string{"对话交互"}, "summary": "回答 Agent 问题", "operationId": "answerChatQuestion",
+					"requestBody": map[string]interface{}{"required": true, "content": map[string]interface{}{"application/json": map[string]interface{}{"schema": map[string]interface{}{
+						"type": "object", "required": []string{"conversationId", "questionId", "answer"},
+						"properties": map[string]interface{}{"conversationId": map[string]interface{}{"type": "string"}, "questionId": map[string]interface{}{"type": "string"}, "answer": map[string]interface{}{"type": "string"}},
+					}}}},
+					"responses": map[string]interface{}{"200": map[string]interface{}{"description": "回答已送达当前任务"}},
+				},
+			},
+			"/api/agent-loop/guide": map[string]interface{}{
+				"post": map[string]interface{}{
+					"tags": []string{"对话交互"}, "summary": "不中断任务地引导 Agent", "operationId": "guideAgentLoop",
+					"requestBody": map[string]interface{}{"required": true, "content": map[string]interface{}{"application/json": map[string]interface{}{"schema": map[string]interface{}{
+						"type": "object", "required": []string{"conversationId", "message"},
+						"properties": map[string]interface{}{"conversationId": map[string]interface{}{"type": "string"}, "message": map[string]interface{}{"type": "string"}},
+					}}}},
+					"responses": map[string]interface{}{"200": map[string]interface{}{"description": "引导已排入当前任务的下一轮"}, "409": map[string]interface{}{"description": "任务已结束或无法接收引导"}},
+				},
+			},
 			"/api/agent-loop/cancel": map[string]interface{}{
 				"post": map[string]interface{}{
 					"tags":        []string{"对话交互"},

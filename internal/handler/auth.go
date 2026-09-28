@@ -2,7 +2,6 @@ package handler
 
 import (
 	"crypto/subtle"
-	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -62,7 +61,7 @@ func (h *AuthHandler) DesktopSession(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "桌面端未启用"})
 		return
 	}
-	if !isLoopbackClientIP(c.ClientIP()) {
+	if !security.IsLoopbackRemoteAddr(c.Request.RemoteAddr) {
 		c.JSON(http.StatusForbidden, gin.H{"error": "仅允许本机桌面窗口使用"})
 		return
 	}
@@ -112,16 +111,6 @@ func (h *AuthHandler) DesktopSession(c *gin.Context) {
 		"scope":             session.Scope,
 		"auth_disabled":     h.manager.Disabled(),
 	})
-}
-
-// isLoopbackClientIP 判定请求是否来自本机回环地址
-func isLoopbackClientIP(ip string) bool {
-	ip = strings.TrimSpace(ip)
-	if ip == "" {
-		return false
-	}
-	parsed := net.ParseIP(ip)
-	return parsed != nil && parsed.IsLoopback()
 }
 
 // Login verifies password and returns a session token.

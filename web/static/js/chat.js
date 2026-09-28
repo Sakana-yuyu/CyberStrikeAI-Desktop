@@ -1851,22 +1851,25 @@ function updateChatPrimaryActionState() {
     if (!button) return;
     const running = isCurrentChatTaskActive();
     const label = running
-        ? chatTranslate('tasks.stopTask', '停止任务')
+        ? '加入队列'
         : chatTranslate('chat.send', '发送');
-    button.classList.toggle('is-task-running', running);
+    button.classList.remove('is-task-running');
+    button.classList.toggle('is-queue-mode', running);
     button.setAttribute('aria-label', label);
     button.setAttribute('title', label);
     const labelElement = button.querySelector('.send-btn-label');
     if (labelElement) labelElement.textContent = label;
+    const stopButton = document.getElementById('chat-stop-btn');
+    if (stopButton) stopButton.hidden = !running;
+    renderChatQueueBanner();
 }
 
 function handleChatPrimaryAction(event) {
     if (event) event.preventDefault();
-    if (!isCurrentChatTaskActive()) {
-        sendMessage();
-        return;
-    }
+    sendMessage();
+}
 
+function stopCurrentChatTask() {
     const live = window.__csAgentLiveStream;
     const conversationId = getCurrentChatTaskConversationId();
     if (conversationId && typeof cancelActiveTask === 'function') {
@@ -1881,12 +1884,6 @@ function handleChatPrimaryAction(event) {
 function initChatPrimaryActionButton() {
     const button = document.getElementById('chat-send-btn');
     if (!button) return;
-    if (!button.querySelector('.send-btn-stop-icon')) {
-        const stopIcon = document.createElement('span');
-        stopIcon.className = 'send-btn-stop-icon';
-        stopIcon.setAttribute('aria-hidden', 'true');
-        button.appendChild(stopIcon);
-    }
     button.onclick = handleChatPrimaryAction;
     updateChatPrimaryActionState();
 }
@@ -2214,11 +2211,213 @@ function adjustTextareaHeight(textarea) {
     }
 }
 
+const CHAT_QUEUE_STORAGE_KEY = 'cyberstrike_chat_queue_v1';
+let chatQueueDrainBusy = false;
+let activeChatQuestion = null;
+let selectedChatQuestionOption = '';
+
+function clearChatQuestion(data = {}) {
+    if (data.questionId && activeChatQuestion && data.questionId !== activeChatQuestion.questionId) return;
+    activeChatQuestion = null;
+    selectedChatQuestionOption = '';
+    if (typeof closeAppModal === 'function') closeAppModal('chat-question-modal');
+}
+
+function showChatQuestion(data) {
+    if (!data || !data.questionId || String(data.conversationId || '') !== String(currentConversationId || '')) return;
+    if (activeChatQuestion && activeChatQuestion.questionId === data.questionId) return;
+    activeChatQuestion = data;
+    selectedChatQuestionOption = '';
+    document.getElementById('chat-question-text').textContent = data.question || '';
+    const options = document.getElementById('chat-question-options');
+    options.replaceChildren();
+    (Array.isArray(data.options) ? data.options : []).forEach((label) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'chat-question-option';
+        button.textContent = label;
+        button.addEventListener('click', () => {
+            selectedChatQuestionOption = label;
+            options.querySelectorAll('.chat-question-option').forEach(el => el.classList.toggle('selected', el === button));
+            document.getElementById('chat-question-custom').value = '';
+        });
+        options.appendChild(button);
+    });
+    document.getElementById('chat-question-custom').value = '';
+    document.getElementById('chat-question-error').hidden = true;
+    openAppModal('chat-question-modal', { focusSelector: '.chat-question-option, #chat-question-custom' });
+}
+
+async function syncPendingChatQuestion(conversationId) {
+    const id = String(conversationId || '').trim();
+    if (!id) return;
+    try {
+        const response = await apiFetch('/api/chat/question?conversationId=' + encodeURIComponent(id));
+        if (!response.ok || currentConversationId !== id) return;
+        const data = await response.json();
+        if (currentConversationId !== id) return;
+        if (data.question) showChatQuestion(data.question);
+        else if (activeChatQuestion && activeChatQuestion.conversationId === id) clearChatQuestion();
+    } catch (_) { /* 后续 SSE 事件仍可显示问题 */ }
+}
+
+async function submitChatQuestionAnswer() {
+    if (!activeChatQuestion) return;
+    const answer = document.getElementById('chat-question-custom').value.trim() || selectedChatQuestionOption;
+    const error = document.getElementById('chat-question-error');
+    if (!answer) {
+        error.textContent = '请选择一项或自行输入回答';
+        error.hidden = false;
+        return;
+    }
+    const question = activeChatQuestion;
+    const submit = document.getElementById('chat-question-submit');
+    submit.disabled = true;
+    try {
+        const response = await apiFetch('/api/chat/question/answer', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ conversationId: question.conversationId, questionId: question.questionId, answer })
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || '回答提交失败');
+        clearChatQuestion({ questionId: question.questionId });
+        if (currentConversationId === question.conversationId) showChatToast('已回答，Agent 正在继续', 'success');
+    } catch (e) {
+        error.textContent = e.message || '回答提交失败';
+        error.hidden = false;
+    } finally {
+        submit.disabled = false;
+    }
+}
+
+window.showChatQuestion = showChatQuestion;
+window.clearChatQuestion = clearChatQuestion;
+
+function readChatQueue() {
+    try {
+        const parsed = JSON.parse(localStorage.getItem(CHAT_QUEUE_STORAGE_KEY) || '{}');
+        return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+    } catch (_) {
+        return {};
+    }
+}
+
+function queuedChatItems(conversationId) {
+    const items = readChatQueue()[String(conversationId || '')];
+    return Array.isArray(items) ? items : [];
+}
+
+function writeQueuedChatItems(conversationId, items) {
+    const id = String(conversationId || '').trim();
+    if (!id) return;
+    const all = readChatQueue();
+    if (items.length) all[id] = items;
+    else delete all[id];
+    localStorage.setItem(CHAT_QUEUE_STORAGE_KEY, JSON.stringify(all));
+    renderChatQueueBanner();
+}
+
+function renderChatQueueBanner() {
+    const banner = document.getElementById('chat-queue-banner');
+    if (!banner) return;
+    const items = queuedChatItems(currentConversationId);
+    banner.hidden = items.length === 0;
+    if (!items.length) return;
+    const first = items[0];
+    document.getElementById('chat-queue-count').textContent = items.length + ' 条消息排队中';
+    document.getElementById('chat-queue-preview').textContent = first.message || '附件消息';
+    const guide = document.getElementById('chat-queue-guide');
+    guide.hidden = !isCurrentChatTaskActive();
+    guide.disabled = !!(first.attachments && first.attachments.length);
+    guide.title = guide.disabled ? '含附件的消息将在任务完成后发送' : '不中断当前步骤，在下一轮引导 Agent';
+}
+
+function removeQueuedChatMessage() {
+    if (!currentConversationId) return;
+    const items = queuedChatItems(currentConversationId);
+    items.shift();
+    writeQueuedChatItems(currentConversationId, items);
+}
+
+async function guideQueuedChatMessage() {
+    const id = String(currentConversationId || '').trim();
+    const items = queuedChatItems(id);
+    const first = items[0];
+    if (!first || (first.attachments && first.attachments.length) || !isCurrentChatTaskActive()) return;
+    const button = document.getElementById('chat-queue-guide');
+    if (button) button.disabled = true;
+    try {
+        const response = await apiFetch('/api/agent-loop/guide', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ conversationId: id, message: first.message })
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error || '引导发送失败');
+        const latest = queuedChatItems(id);
+        if (latest[0] && latest[0].id === first.id) {
+            latest.shift();
+            writeQueuedChatItems(id, latest);
+        }
+        if (currentConversationId === id) {
+            addMessage('user', first.message, null, null, null, { scroll: 'none' });
+            invalidateConversationLiteCache(id);
+            showChatToast(result.persisted === false
+                ? '引导已送入当前任务，但保存对话历史失败'
+                : '已发送引导，Agent 会在当前步骤完成后调整方向', result.persisted === false ? 'error' : 'success');
+        }
+    } catch (error) {
+        showChatToast(error.message || '引导发送失败', 'error');
+    } finally {
+        renderChatQueueBanner();
+    }
+}
+
+async function drainQueuedChatMessages() {
+    if (chatQueueDrainBusy || !currentConversationId || isCurrentChatTaskActive()) return;
+    const id = currentConversationId;
+    const items = queuedChatItems(id);
+    if (!items.length) return;
+    chatQueueDrainBusy = true;
+    let accepted = false;
+    try {
+        const first = items[0];
+        await sendMessage({ queuedItem: first, onAccepted: () => {
+            accepted = true;
+            const latest = queuedChatItems(id);
+            if (latest[0] && latest[0].id === first.id) {
+                latest.shift();
+                writeQueuedChatItems(id, latest);
+            }
+        } });
+    } finally {
+        chatQueueDrainBusy = false;
+        if (accepted) setTimeout(() => {
+            if (currentConversationId === id && !isCurrentChatTaskActive()) void drainQueuedChatMessages();
+        }, 400);
+    }
+}
+
+window.addEventListener('conversation-task-state-changed', () => {
+    renderChatQueueBanner();
+    if (activeChatQuestion && !isCurrentChatTaskActive()) {
+        void syncPendingChatQuestion(activeChatQuestion.conversationId);
+    }
+    if (!isCurrentChatTaskActive()) void drainQueuedChatMessages();
+});
+window.addEventListener('conversation-changed', () => {
+    clearChatQuestion();
+    void syncPendingChatQuestion(currentConversationId);
+    renderChatQueueBanner();
+    if (!isCurrentChatTaskActive()) void drainQueuedChatMessages();
+});
+
 // 发送消息
-async function sendMessage() {
+async function sendMessage(options = {}) {
     const input = document.getElementById('chat-input');
-    let message = input.value.trim();
-    const hasAttachments = chatAttachments && chatAttachments.length > 0;
+    const queuedItem = options.queuedItem || null;
+    let message = queuedItem ? String(queuedItem.message || '').trim() : input.value.trim();
+    const attachments = queuedItem ? (queuedItem.attachments || []) : chatAttachments;
+    const hasAttachments = attachments && attachments.length > 0;
     const requestConversationId = currentConversationId;
     const requestNavigationSeq = chatConversationNavigationSeq;
 
@@ -2240,14 +2439,8 @@ async function sendMessage() {
     if (currentConversationId && typeof loadActiveTasks === 'function') {
         await loadActiveTasks();
     }
-    if (isCurrentChatTaskActive()) {
-        updateChatPrimaryActionState();
-        showChatToast(chatTranslate('chat.taskAlreadyRunning', '当前会话已有任务正在执行，请先等待完成或停止任务。'), 'info');
-        return;
-    }
-
     if (hasAttachments) {
-        const needWait = chatAttachments.some((a) => a.uploading);
+        const needWait = attachments.some((a) => a.uploading);
         if (needWait) {
             const waitLabel = (typeof window.t === 'function')
                 ? window.t('chat.waitingAttachmentsUpload')
@@ -2255,11 +2448,11 @@ async function sendMessage() {
             chatAttachmentProgressSet(true, 0, waitLabel);
         }
         try {
-            await Promise.all(chatAttachments.map((a) => (a.uploadPromise ? a.uploadPromise : Promise.resolve())));
+            await Promise.all(attachments.map((a) => (a.uploadPromise ? a.uploadPromise : Promise.resolve())));
         } finally {
             refreshChatAttachmentUploadProgress();
         }
-        const bad = chatAttachments.filter((a) => !a.serverPath);
+        const bad = attachments.filter((a) => !a.serverPath);
         if (bad.length) {
             const hint = (typeof window.t === 'function')
                 ? window.t('chat.attachmentsUploadIncomplete')
@@ -2280,37 +2473,57 @@ async function sendMessage() {
         return;
     }
 
+    if (isCurrentChatTaskActive()) {
+        if (queuedItem) return false;
+        const id = String(currentConversationId || '').trim();
+        const queued = queuedChatItems(id);
+        if (!id || queued.length >= 20) {
+            showChatToast('队列最多保留 20 条消息', 'info');
+            return false;
+        }
+        queued.push({ id: String(Date.now()) + '-' + Math.random().toString(36).slice(2),
+            message, attachments: attachments.map(a => ({ fileName: a.fileName, mimeType: a.mimeType || '', serverPath: a.serverPath })) });
+        writeQueuedChatItems(id, queued);
+        chatAttachments = [];
+        renderChatFileChips();
+        input.value = '';
+        input.style.height = '40px';
+        clearChatDraft();
+        showChatToast('已加入队列；可点击“引导 Agent”提前送入当前任务', 'info');
+        return true;
+    }
+
     // 显示用户消息（含附件名，便于用户确认）
     const displayMessage = hasAttachments
-        ? message + '\n' + chatAttachments.map(a => a.fileName).join('\n')
+        ? message + '\n' + attachments.map(a => a.fileName).join('\n')
         : message;
     if (window.CyberStrikeChatScroll) {
         window.CyberStrikeChatScroll.onUserSendMessage();
     }
-    addMessage('user', displayMessage, null, null, null, { scroll: 'none' });
+    const userBubbleId = addMessage('user', displayMessage, null, null, null, { scroll: 'none' });
     if (currentConversationId) {
         invalidateConversationLiteCache(currentConversationId);
     }
 
     // 清除防抖定时器，防止在清空输入框后重新保存草稿
-    if (draftSaveTimer) {
+    if (!queuedItem && draftSaveTimer) {
         clearTimeout(draftSaveTimer);
         draftSaveTimer = null;
     }
 
     // 立即清除草稿，防止页面刷新时恢复
-    clearChatDraft();
+    if (!queuedItem) clearChatDraft();
     // 使用同步方式确保草稿被清除
     try {
-        localStorage.removeItem(DRAFT_STORAGE_KEY);
+        if (!queuedItem) localStorage.removeItem(DRAFT_STORAGE_KEY);
     } catch (e) {
         // 忽略错误
     }
 
     // 立即清空输入框并清除草稿（在发送请求之前）
-    input.value = '';
+    if (!queuedItem) input.value = '';
     // 强制重置输入框高度为初始高度（40px）
-    input.style.height = '40px';
+    if (!queuedItem) input.style.height = '40px';
 
     // 构建请求体（含附件）
     const body = {
@@ -2348,7 +2561,7 @@ async function sendMessage() {
         };
     }
     if (hasAttachments) {
-        body.attachments = chatAttachments.map((a) => ({
+        body.attachments = attachments.map((a) => ({
             fileName: a.fileName,
             mimeType: a.mimeType || '',
             serverPath: a.serverPath
@@ -2359,8 +2572,10 @@ async function sendMessage() {
         body.reasoning = reasoningPayload;
     }
     // 发送后清空附件列表
-    chatAttachments = [];
-    renderChatFileChips();
+    if (!queuedItem) {
+        chatAttachments = [];
+        renderChatFileChips();
+    }
 
     // 创建进度消息容器（使用详细的进度展示）
     const progressId = addProgressMessage();
@@ -2387,6 +2602,7 @@ async function sendMessage() {
     loadActiveTasks();
     let assistantMessageId = null;
     let mcpExecutionIds = [];
+    let queuedTaskAcknowledged = false;
 
     try {
         const modeSel = document.getElementById('agent-mode-select');
@@ -2409,7 +2625,6 @@ async function sendMessage() {
         if (!response.ok) {
             throw new Error('请求失败: ' + response.status);
         }
-
         liveStreamState.conversationId = streamConversationId || null;
         try {
             const reader = response.body.getReader();
@@ -2434,6 +2649,15 @@ async function sendMessage() {
                         justBoundConversation = true;
                     }
                 }
+                if (queuedItem && eventData && eventData.type === 'task_started' && !queuedTaskAcknowledged) {
+                    queuedTaskAcknowledged = true;
+                    if (typeof options.onAccepted === 'function') options.onAccepted();
+                }
+                if (queuedItem && eventData && eventData.type === 'error' &&
+                    eventData.data && eventData.data.errorType === 'task_already_running') {
+                    removeMessage(userBubbleId);
+                }
+                if (eventData && eventData.type === 'task_started') return;
                 // 切换对话后仍可能收到旧响应流中已缓冲的 conversation、response_start
                 // 或 response 事件。它们只能补齐后台任务归属，不能重新抢占当前对话。
                 if (shouldIgnoreLiveChatStreamEvent(liveStreamState)) {
@@ -2503,6 +2727,7 @@ async function sendMessage() {
                     addMessage('system', hint);
                 }
             }
+            if (queuedItem && streamSawDone && !queuedTaskAcknowledged) removeMessage(userBubbleId);
         } finally {
             const clearedOwnedStream = clearLiveChatStreamIfOwned(liveStreamState);
             if (clearedOwnedStream && !liveStreamState.detached && window.CyberStrikeChatScroll) {

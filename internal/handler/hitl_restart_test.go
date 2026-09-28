@@ -98,8 +98,12 @@ func TestEnsureSchemaFinalizesOnlyHistoricalPlaceholdersWithTerminalEvidence(t *
 	if err != nil {
 		t.Fatalf("create superseded placeholder: %v", err)
 	}
-	if _, err := db.AddMessage(supersededConversation.ID, "user", "继续", nil); err != nil {
+	laterMessage, err := db.AddMessage(supersededConversation.ID, "user", "继续", nil)
+	if err != nil {
 		t.Fatalf("create later message: %v", err)
+	}
+	if _, err := db.Exec(`UPDATE messages SET created_at = ? WHERE id = ?`, superseded.CreatedAt, laterMessage.ID); err != nil {
+		t.Fatalf("force equal message timestamps: %v", err)
 	}
 
 	timeoutConversation, err := db.CreateConversation("timeout placeholder", database.ConversationCreateMeta{})

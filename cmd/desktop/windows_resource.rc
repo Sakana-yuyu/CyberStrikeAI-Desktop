@@ -1,6 +1,8 @@
 // Windows 资源：应用图标（资源 ID 1，资源管理器/任务栏与 WebView2 窗口共用）与版本信息。
 // 由 build-desktop.sh 调用 windres 编译为 resource_windows_amd64.syso 后链接进 exe。
 1 ICON "icon.ico"
+// RT_MANIFEST = 24。Per-Monitor V2 让 WebView2 按真实 DPI 光栅化，避免高分屏被系统位图拉伸后发糊。
+1 24 "app.manifest"
 
 1 VERSIONINFO
 FILEVERSION     1,7,19,0

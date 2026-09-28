@@ -1,6 +1,9 @@
 package security
 
-import "strings"
+import (
+	"runtime"
+	"strings"
+)
 
 const backgroundJobStdioRedirect = " </dev/null >/dev/null 2>&1"
 
@@ -104,8 +107,11 @@ func RedirectBackgroundJobStdio(command string) string {
 	return out
 }
 
-// PrepareShellCommandForExecute 组合 execute/exec 用的非交互包装与后台 IO 重定向。
-// 须先注入 exec </dev/null，再改写 & 后台段，否则段内 </dev/null 会使 stdin 重定向被误判为已存在。
+// PrepareShellCommandForExecute 为当前平台准备 execute/exec 命令。
+// Unix 需要非交互包装和后台 IO 重定向；Windows 将原命令交给 PowerShell 解释。
 func PrepareShellCommandForExecute(shellCommand string) string {
+	if runtime.GOOS == "windows" {
+		return shellCommand
+	}
 	return RedirectBackgroundJobStdio(PrepareNonInteractiveShellCommand(shellCommand))
 }

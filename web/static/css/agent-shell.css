@@ -107,8 +107,8 @@ html[data-theme="dark"].agent-shell {
     --agent-rail-surface: #1e1e1e;
     --agent-chat-surface: #181818;
     --agent-row-hover: rgba(255, 255, 255, 0.08);
-    --agent-panel-surface: #1a2333;
-    --agent-hairline: rgba(255, 255, 255, 0.07);
+    --agent-panel-surface: #2a2a2a;
+    --agent-hairline: rgba(255, 255, 255, 0.08);
     --agent-shadow-soft:
         0 18px 40px rgba(0, 0, 0, 0.32),
         0 4px 12px rgba(0, 0, 0, 0.18);
@@ -118,8 +118,18 @@ html[data-theme="dark"].agent-shell {
     --agent-inset-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
-html[data-theme="dark"].agent-shell .chat-composer-surface.chat-input-primary-row {
+html[data-theme="dark"].agent-shell .chat-composer-context,
+html[data-theme="dark"].agent-shell .chat-system-model-menu {
+    border-color: transparent;
     background: var(--agent-panel-surface);
+    box-shadow:
+        var(--agent-shadow-soft),
+        0 0 0 1px var(--agent-hairline);
+}
+
+html[data-theme="dark"].agent-shell .chat-composer-surface.chat-input-primary-row {
+    border-color: transparent !important;
+    background: var(--agent-panel-surface) !important;
     box-shadow:
         var(--agent-shadow-soft),
         var(--agent-inset-highlight),
@@ -140,6 +150,47 @@ html[data-theme="dark"].agent-shell .chat-welcome-empty-state-title {
 
 html[data-theme="dark"].agent-shell .chat-welcome-empty-state-subtitle {
     color: #9ca3af;
+}
+
+html[data-theme="dark"].agent-shell #conversation-sidebar .sidebar-header,
+html[data-theme="dark"].agent-shell #conversation-sidebar .conversation-sidebar-header {
+    background: var(--agent-rail-surface);
+    border-bottom-color: transparent;
+}
+
+html[data-theme="dark"].agent-shell .conversation-sidebar-collapse-btn {
+    background: var(--agent-panel-surface);
+    border-color: transparent;
+    color: var(--text-secondary);
+    box-shadow: 0 0 0 1px var(--agent-hairline);
+}
+
+html[data-theme="dark"].agent-shell .conversation-sidebar-collapse-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: transparent;
+    color: var(--text-primary);
+}
+
+html[data-theme="dark"].agent-shell .agent-chat-topbar {
+    border-bottom-color: var(--agent-hairline);
+}
+
+html[data-theme="dark"].agent-shell .agent-chat-files-toggle {
+    background: var(--agent-panel-surface);
+    border-color: transparent;
+    color: var(--text-secondary);
+    box-shadow: 0 0 0 1px var(--agent-hairline);
+}
+
+html[data-theme="dark"].agent-shell .agent-chat-files-toggle:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-primary);
+}
+
+html[data-theme="dark"].agent-shell .agent-chat-files-toggle[aria-pressed="true"] {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: transparent;
+    color: var(--text-primary);
 }
 
 html.agent-shell header {
@@ -2574,26 +2625,67 @@ html.agent-shell #conversation-sidebar:not(.collapsed) .agent-rail-icon-btn.user
 }
 
 html[data-theme="dark"].agent-shell #conversation-sidebar .conversation-search-box input,
+html[data-theme="dark"].agent-shell #conversation-sidebar .conversation-search-box input:focus,
 html[data-theme="dark"].agent-shell #conversation-sidebar .project-folders-section,
 html[data-theme="dark"].agent-shell #conversation-sidebar .recent-conversations-section,
 html[data-theme="dark"].agent-shell #conversation-sidebar:not(.collapsed) .agent-rail-capsule,
 html[data-theme="dark"].agent-shell #conversation-sidebar:not(.collapsed) .agent-rail-icon-btn.notification-btn,
 html[data-theme="dark"].agent-shell #conversation-sidebar:not(.collapsed) .agent-rail-icon-btn.user-avatar-btn,
+html[data-theme="dark"].agent-shell #conversation-sidebar:not(.collapsed) .agent-rail-capsule:hover,
+html[data-theme="dark"].agent-shell #conversation-sidebar:not(.collapsed) .agent-rail-capsule[aria-expanded="true"],
+html[data-theme="dark"].agent-shell #conversation-sidebar:not(.collapsed) .agent-rail-icon-btn.notification-btn:hover,
+html[data-theme="dark"].agent-shell #conversation-sidebar:not(.collapsed) .agent-rail-icon-btn.user-avatar-btn:hover,
+html[data-theme="dark"].agent-shell #conversation-sidebar:not(.collapsed) .agent-rail-icon-btn.notification-btn.active,
+html[data-theme="dark"].agent-shell #conversation-sidebar:not(.collapsed) .agent-rail-icon-btn.user-avatar-btn.active,
+html[data-theme="dark"].agent-shell .cm-body,
 html[data-theme="dark"] .cm-body {
-    background: #2a2a2a;
-    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
+    background: var(--agent-panel-surface) !important;
+    box-shadow: 0 0 0 1px var(--agent-hairline) !important;
+    color: var(--text-primary);
+}
+
+html[data-theme="dark"].agent-shell #conversation-sidebar .section-title,
+html[data-theme="dark"].agent-shell #conversation-sidebar .project-folder-item,
+html[data-theme="dark"].agent-shell #conversation-sidebar .project-folder-title,
+html[data-theme="dark"].agent-shell #conversation-sidebar .conversation-item,
+html[data-theme="dark"].agent-shell #conversation-sidebar .conversation-title,
+html[data-theme="dark"].agent-shell #conversation-sidebar .conversations-list-empty-title {
+    color: var(--text-primary);
+}
+
+html[data-theme="dark"].agent-shell #conversation-sidebar .project-folder-icon,
+html[data-theme="dark"].agent-shell #conversation-sidebar .project-folder-disclosure,
+html[data-theme="dark"].agent-shell #conversation-sidebar .project-folder-action,
+html[data-theme="dark"].agent-shell #conversation-sidebar .conversation-time,
+html[data-theme="dark"].agent-shell #conversation-sidebar .conversations-list-empty-hint,
+html[data-theme="dark"].agent-shell #conversation-sidebar .project-folders-load-more {
+    color: var(--text-secondary);
+}
+
+html[data-theme="dark"].agent-shell #conversation-sidebar .recent-conversations-count,
+html[data-theme="dark"].agent-shell #conversation-sidebar .project-folders-load-more-count {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-secondary);
 }
 
 html[data-theme="dark"].agent-shell #conversation-sidebar .project-folder-item:hover,
 html[data-theme="dark"].agent-shell #conversation-sidebar .project-folder-item[aria-current="true"],
 html[data-theme="dark"].agent-shell #conversation-sidebar .conversation-item:hover,
-html[data-theme="dark"].agent-shell #conversation-sidebar .conversation-item.active {
+html[data-theme="dark"].agent-shell #conversation-sidebar .conversation-item.active,
+html[data-theme="dark"].agent-shell #conversation-sidebar .project-folders-load-more:hover,
+html[data-theme="dark"].agent-shell #conversation-sidebar .project-folders-load-more:focus-visible {
     background: rgba(255, 255, 255, 0.06) !important;
     box-shadow: none !important;
+    color: var(--text-primary);
 }
 
-/* Agent text, matched to CodeWork chat-markdown: flat prose, modest headings,
-   fenced blocks with a language bar, tables that scroll instead of stretching. */
+/* 主聊天区统一阅读宽度，让用户提问与助手回复保持在同一视线范围内。 */
+html.agent-shell #chat-messages > .message {
+    max-width: 960px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
 html.agent-shell .message.assistant .message-content {
     max-width: min(100%, 768px);
 }
@@ -2603,8 +2695,9 @@ html.agent-shell .message.user .message-content {
 }
 
 html.agent-shell .message-bubble.chat-markdown {
-    font-size: 14px;
-    line-height: 1.65;
+    font-size: 15px;
+    line-height: 1.72;
+    overflow-wrap: anywhere;
 }
 
 html.agent-shell .message.assistant .message-bubble.chat-markdown {
@@ -2644,7 +2737,7 @@ html.agent-shell .message-bubble.chat-markdown p,
 html.agent-shell .message-bubble.chat-markdown ul,
 html.agent-shell .message-bubble.chat-markdown ol,
 html.agent-shell .message-bubble.chat-markdown blockquote {
-    margin: 0.65rem 0;
+    margin: 0.75rem 0;
 }
 
 html.agent-shell .message-bubble.chat-markdown h1,
@@ -2653,18 +2746,18 @@ html.agent-shell .message-bubble.chat-markdown h3,
 html.agent-shell .message-bubble.chat-markdown h4,
 html.agent-shell .message-bubble.chat-markdown h5,
 html.agent-shell .message-bubble.chat-markdown h6 {
-    margin: 1.25rem 0 0.5rem;
+    margin: 1.4rem 0 0.55rem;
     font-weight: 600;
     line-height: 1.3;
     color: var(--text-primary);
 }
 
-html.agent-shell .message-bubble.chat-markdown h1 { font-size: 1.25rem; }
-html.agent-shell .message-bubble.chat-markdown h2 { font-size: 1.125rem; }
-html.agent-shell .message-bubble.chat-markdown h3 { font-size: 1rem; }
+html.agent-shell .message-bubble.chat-markdown h1 { font-size: 1.35rem; }
+html.agent-shell .message-bubble.chat-markdown h2 { font-size: 1.18rem; }
+html.agent-shell .message-bubble.chat-markdown h3 { font-size: 1.06rem; }
 html.agent-shell .message-bubble.chat-markdown h4,
 html.agent-shell .message-bubble.chat-markdown h5,
-html.agent-shell .message-bubble.chat-markdown h6 { font-size: 0.875rem; }
+html.agent-shell .message-bubble.chat-markdown h6 { font-size: 0.95rem; }
 
 html.agent-shell .message-bubble.chat-markdown ul {
     padding-left: 1.25rem;
@@ -2681,7 +2774,7 @@ html.agent-shell .message-bubble.chat-markdown ul ul ul { list-style-type: squar
 html.agent-shell .message-bubble.chat-markdown ol ol { list-style-type: lower-alpha; }
 
 html.agent-shell .message-bubble.chat-markdown li + li {
-    margin-top: 0.25rem;
+    margin-top: 0.35rem;
 }
 
 html.agent-shell .message-bubble.chat-markdown li:has(> input[type="checkbox"]) {
@@ -2696,12 +2789,27 @@ html.agent-shell .message-bubble.chat-markdown li input[type="checkbox"] {
 
 html.agent-shell .message-bubble.chat-markdown a {
     color: var(--accent-color);
-    text-decoration: none;
+    text-decoration: underline;
+    text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
+    text-underline-offset: 3px;
 }
 
 html.agent-shell .message-bubble.chat-markdown a:hover {
-    text-decoration: underline;
-    text-underline-offset: 3px;
+    text-decoration-color: currentColor;
+}
+
+html.agent-shell .message-bubble.chat-markdown a:focus-visible {
+    outline: 2px solid var(--accent-color);
+    outline-offset: 2px;
+    border-radius: 2px;
+}
+
+html.agent-shell .message-bubble.chat-markdown img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    margin: 0.75rem 0;
+    border-radius: 8px;
 }
 
 html.agent-shell .message-bubble.chat-markdown blockquote {
@@ -2724,7 +2832,7 @@ html.agent-shell .message.user .message-bubble.chat-markdown :not(pre) > code {
 }
 
 html.agent-shell .chat-markdown-codeblock {
-    margin: 0.65rem 0;
+    margin: 0.85rem 0;
     overflow: hidden;
     border: 1px solid rgba(15, 23, 42, 0.1);
     border-radius: 12px;
@@ -2758,8 +2866,8 @@ html.agent-shell .chat-markdown-chrome-action {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 24px;
-    height: 24px;
+    width: 28px;
+    height: 28px;
     padding: 0;
     border: 0;
     border-radius: 6px;
@@ -2775,6 +2883,15 @@ html.agent-shell .chat-markdown-chrome-action.is-copied {
     background: rgba(15, 23, 42, 0.06);
 }
 
+html.agent-shell .chat-markdown-chrome-action:focus-visible {
+    outline: 2px solid var(--accent-color);
+    outline-offset: 1px;
+}
+
+html.agent-shell .chat-markdown-chrome-action.is-copy-failed {
+    color: var(--error-color);
+}
+
 html.agent-shell .message.assistant .message-bubble.chat-markdown pre,
 html.agent-shell .message.user .message-bubble.chat-markdown pre,
 html.agent-shell .chat-markdown-codeblock pre {
@@ -2784,8 +2901,8 @@ html.agent-shell .chat-markdown-codeblock pre {
     background: transparent;
     padding: 8px 12px 12px;
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 12.5px;
-    line-height: 1.5;
+    font-size: 13px;
+    line-height: 1.55;
     white-space: pre;
     overflow-x: auto;
 }
@@ -2804,15 +2921,18 @@ html.agent-shell .chat-markdown-codeblock[data-wrap="true"] pre {
 }
 
 html.agent-shell .message-bubble.chat-markdown .table-wrapper {
-    margin: 0.65rem 0;
+    max-width: 100%;
+    margin: 0.85rem 0;
     border: 1px solid rgba(15, 23, 42, 0.08);
     border-radius: 12px;
     overflow: auto;
 }
 
 html.agent-shell .message-bubble.chat-markdown table {
-    min-width: max-content;
-    font-size: 0.75rem;
+    width: max-content;
+    min-width: 100%;
+    font-size: 0.8125rem;
+    line-height: 1.5;
 }
 
 html.agent-shell .message-bubble.chat-markdown table th {
@@ -2828,6 +2948,10 @@ html.agent-shell .message-bubble.chat-markdown table td {
     white-space: normal;
     padding: 0.45rem 0.75rem;
     border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+html.agent-shell .message-bubble.chat-markdown table tbody tr:nth-child(even) {
+    background: rgba(15, 23, 42, 0.025);
 }
 
 html[data-theme="dark"].agent-shell .message-bubble.chat-markdown :not(pre) > code {
@@ -2846,6 +2970,16 @@ html[data-theme="dark"].agent-shell .chat-markdown-chrome-action {
     color: rgba(229, 231, 235, 0.72);
 }
 
+html[data-theme="dark"].agent-shell .chat-markdown-chrome-action:hover,
+html[data-theme="dark"].agent-shell .chat-markdown-chrome-action[aria-pressed="true"],
+html[data-theme="dark"].agent-shell .chat-markdown-chrome-action.is-copied {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme="dark"].agent-shell .chat-markdown-chrome-action.is-copy-failed {
+    color: var(--error-color);
+}
+
 html.agent-shell #conversations-pagination {
     display: none !important;
 }
@@ -2855,4 +2989,120 @@ html[data-theme="dark"].agent-shell .message-bubble.chat-markdown .table-wrapper
 html[data-theme="dark"].agent-shell .message-bubble.chat-markdown table th,
 html[data-theme="dark"].agent-shell .message-bubble.chat-markdown table td {
     border-color: rgba(255, 255, 255, 0.12);
+}
+
+html[data-theme="dark"].agent-shell .message-bubble.chat-markdown table tbody tr:nth-child(even) {
+    background: rgba(255, 255, 255, 0.035);
+}
+
+html.agent-shell .chat-queue-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 8px 0;
+    padding: 9px 12px;
+    border: 1px solid var(--border-color, #d8dee8);
+    border-radius: 10px;
+    background: var(--bg-secondary, #f7f9fc);
+    font-size: 12px;
+}
+
+html.agent-shell .chat-queue-banner[hidden],
+html.agent-shell .chat-stop-btn[hidden] {
+    display: none !important;
+}
+
+html.agent-shell .chat-queue-banner-copy {
+    min-width: 0;
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+}
+
+html.agent-shell #chat-queue-preview {
+    color: var(--text-secondary, #67748a);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 32rem;
+}
+
+html.agent-shell .chat-queue-banner-actions {
+    display: flex;
+    flex: none;
+    gap: 6px;
+}
+
+html.agent-shell .chat-queue-banner-actions button,
+html.agent-shell .chat-stop-btn,
+html.agent-shell .chat-question-option {
+    border: 1px solid var(--border-color, #d8dee8);
+    border-radius: 7px;
+    padding: 5px 9px;
+    color: var(--text-primary, #1a2433);
+    background: var(--bg-primary, #fff);
+    cursor: pointer;
+}
+
+html.agent-shell #chat-queue-guide,
+html.agent-shell .chat-question-option.selected {
+    border-color: var(--primary-color, #3b72b6);
+    color: var(--primary-color, #3267a8);
+    background: rgba(62, 114, 182, 0.08);
+}
+
+html.agent-shell .chat-stop-btn {
+    width: 34px;
+    height: 34px;
+    flex: none;
+    padding: 0;
+    font-size: 14px;
+}
+
+html.agent-shell .chat-question-content {
+    max-width: 540px;
+}
+
+html.agent-shell .chat-question-text {
+    font-size: 15px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+}
+
+html.agent-shell .chat-question-options {
+    display: grid;
+    gap: 8px;
+    margin: 14px 0 18px;
+}
+
+html.agent-shell .chat-question-option {
+    text-align: left;
+    padding: 10px 12px;
+}
+
+html.agent-shell .chat-question-content label[for="chat-question-custom"] {
+    display: block;
+    margin: 0 0 7px;
+    font-size: 12px;
+    color: var(--text-secondary, #67748a);
+}
+
+html.agent-shell #chat-question-custom {
+    display: block;
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 84px;
+    resize: vertical;
+}
+
+html.agent-shell .chat-question-error {
+    color: var(--error-color, #c53a3a);
+    margin: 8px 0;
+}
+
+@media (max-width: 600px) {
+    html.agent-shell .chat-queue-banner,
+    html.agent-shell .chat-queue-banner-copy { align-items: flex-start; flex-direction: column; }
+    html.agent-shell #chat-queue-preview { max-width: 70vw; }
 }

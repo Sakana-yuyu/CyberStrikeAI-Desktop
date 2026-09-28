@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -19,11 +20,13 @@ import (
 // 导入本地项目文件夹：文件落入 tmp/workspace/projects/<projectID>/，
 // 与智能体工作区同一棵树，文件管理页（workspace 根）按项目可见。
 const (
-	importFolderFilesField  = "files"
-	importFolderPathsField  = "paths"
-	importFolderMaxFiles    = 200
-	importFolderMaxFileByte = 512 << 20 // 单文件 512MiB
-	importFolderMaxRelRunes = 1024
+	importFolderFilesField   = "files"
+	importFolderPathsField   = "paths"
+	importFolderMaxFiles     = 200
+	importFolderMaxFileByte  = 512 << 20                            // 单文件 512MiB
+	importFolderMaxTotalByte = 1 << 30                              // 单次累计文件数据 1GiB
+	importFolderMaxBodyByte  = importFolderMaxTotalByte + (8 << 20) // multipart 头部与字段预留 8MiB
+	importFolderMaxRelRunes  = 1024
 )
 
 // importFolderSkipDirs 选择文件夹时几乎必然携带、但对项目工作区无价值的目录；
@@ -117,15 +120,41 @@ func firstFormValue(values map[string][]string, key string) string {
 	return ""
 }
 
+func validateImportFolderFileSizes(fileHeaders []*multipart.FileHeader) error {
+	var totalBytes int64
+	for _, fh := range fileHeaders {
+		if fh.Size > importFolderMaxFileByte {
+			return fmt.Errorf("文件超过 %dMiB 上限: %s", importFolderMaxFileByte>>20, fh.Filename)
+		}
+		if fh.Size < 0 || fh.Size > importFolderMaxTotalByte-totalBytes {
+			return fmt.Errorf("单次导入数据超过 %dMiB 上限", importFolderMaxTotalByte>>20)
+		}
+		totalBytes += fh.Size
+	}
+	return nil
+}
+
 // ImportProjectFolder POST /api/projects/import-folder
 // multipart：paths（与 files 等长的相对路径数组）、files、projectId（省略时按 projectName 新建项目）。
 // 权限：路由层映射 project:write；导入到已有项目时再校验资源归属。
 func (h *ProjectHandler) ImportProjectFolder(c *gin.Context) {
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, importFolderMaxBodyByte)
 	form, err := c.MultipartForm()
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "解析 multipart 表单失败: " + err.Error()})
+		status := http.StatusBadRequest
+		message := "解析 multipart 表单失败: " + err.Error()
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
+			status = http.StatusRequestEntityTooLarge
+			message = "单次导入请求超出大小限制"
+		}
+		if c.Request.MultipartForm != nil {
+			_ = c.Request.MultipartForm.RemoveAll()
+		}
+		c.JSON(status, gin.H{"error": message})
 		return
 	}
+	defer form.RemoveAll()
 	fileHeaders := form.File[importFolderFilesField]
 	paths := form.Value[importFolderPathsField]
 	if len(fileHeaders) == 0 {
@@ -138,6 +167,10 @@ func (h *ProjectHandler) ImportProjectFolder(c *gin.Context) {
 	}
 	if len(fileHeaders) > importFolderMaxFiles {
 		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("单次最多 %d 个文件，请分批导入", importFolderMaxFiles)})
+		return
+	}
+	if err := validateImportFolderFileSizes(fileHeaders); err != nil {
+		c.JSON(http.StatusRequestEntityTooLarge, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -207,10 +240,6 @@ func (h *ProjectHandler) ImportProjectFolder(c *gin.Context) {
 			}
 			continue
 		}
-		if fh.Size > importFolderMaxFileByte {
-			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("文件超过 %dMiB 上限: %s", importFolderMaxFileByte>>20, fh.Filename)})
-			return
-		}
 		dst := filepath.Join(projectRoot, filepath.FromSlash(rel))
 		if !strings.HasPrefix(dst, projectRoot+string(filepath.Separator)) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "路径越界"})
@@ -258,22 +287,20 @@ func saveImportedFile(fh *multipart.FileHeader, dst string) error {
 		return err
 	}
 	defer src.Close()
-	tmp := dst + ".importing"
-	f, err := os.Create(tmp)
+	f, err := os.CreateTemp(filepath.Dir(dst), ".cyberstrike-import-*")
 	if err != nil {
 		return err
 	}
+	tmp := f.Name()
+	defer os.Remove(tmp)
 	if _, err = io.Copy(f, src); err != nil {
 		_ = f.Close()
-		_ = os.Remove(tmp)
 		return err
 	}
 	if err = f.Close(); err != nil {
-		_ = os.Remove(tmp)
 		return err
 	}
 	if err = os.Rename(tmp, dst); err != nil {
-		_ = os.Remove(tmp)
 		return err
 	}
 	return nil

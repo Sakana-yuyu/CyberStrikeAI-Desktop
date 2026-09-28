@@ -10,6 +10,21 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+func TestChatQuestionAndGuidanceRoutePermissions(t *testing.T) {
+	cases := []struct {
+		method, path, permission string
+	}{
+		{http.MethodGet, "/api/chat/question", "chat:read"},
+		{http.MethodPost, "/api/chat/question/answer", "agent:execute"},
+		{http.MethodPost, "/api/agent-loop/guide", "agent:execute"},
+	}
+	for _, tc := range cases {
+		if got := permissionForRequest(tc.method, tc.path); got != tc.permission {
+			t.Errorf("%s %s: got %q, want %q", tc.method, tc.path, got, tc.permission)
+		}
+	}
+}
+
 func TestRBACMiddlewareUsesMatchedFullPath(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()

@@ -51,6 +51,7 @@ func TestExecutor_ExecuteInternalTool_UnknownTool(t *testing.T) {
 }
 
 func TestExecuteSystemCommand_BackgroundDoesNotBlockOnChildStdout(t *testing.T) {
+	requirePosixExecutorShell(t)
 	executor, _ := setupTestExecutor(t)
 	// 子进程先向 stdout 写无换行字符再长时间 sleep；若与 echo $pid 共享管道且未重定向子进程 stdout，
 	// ReadString('\n') 会阻塞到子进程退出。后台包装须将子进程标准流与 PID 行分离。
@@ -80,6 +81,7 @@ func TestExecuteSystemCommand_BackgroundDoesNotBlockOnChildStdout(t *testing.T) 
 }
 
 func TestExecToolSoftWaitExposesPartialOutput(t *testing.T) {
+	requirePosixExecutorShell(t)
 	executor, server := setupTestExecutor(t)
 	server.ConfigureToolWaitTimeoutSeconds(1)
 	mcp.RegisterExecutionControlTools(server, nil)
@@ -117,6 +119,7 @@ func TestExecToolSoftWaitExposesPartialOutput(t *testing.T) {
 }
 
 func TestExecuteSystemCommand_FailureFormat(t *testing.T) {
+	requirePosixExecutorShell(t)
 	executor, _ := setupTestExecutor(t)
 	res, err := executor.executeSystemCommand(context.Background(), map[string]interface{}{
 		"command": "echo fail-msg >&2; exit 7",
@@ -138,6 +141,7 @@ func TestExecuteSystemCommand_FailureFormat(t *testing.T) {
 }
 
 func TestExecuteSystemCommand_OutputIsSourceLimited(t *testing.T) {
+	requirePosixExecutorShell(t)
 	executor, _ := setupTestExecutor(t)
 	spillRoot := t.TempDir()
 	executor.SetToolOutputMaxBytes(200)
@@ -166,6 +170,7 @@ func TestExecuteSystemCommand_OutputIsSourceLimited(t *testing.T) {
 }
 
 func TestExecuteSystemCommand_StreamingOutputIsSourceLimited(t *testing.T) {
+	requirePosixExecutorShell(t)
 	executor, _ := setupTestExecutor(t)
 	spillRoot := t.TempDir()
 	executor.SetToolOutputMaxBytes(200)
@@ -198,6 +203,28 @@ func TestExecuteSystemCommand_StreamingOutputIsSourceLimited(t *testing.T) {
 	}
 	if strings.Contains(text, strings.Repeat("abcdefghij", 50)) {
 		t.Fatalf("returned output kept too much raw data: len=%d", len(text))
+	}
+}
+
+func TestExecuteSystemCommand_DefaultShellRuns(t *testing.T) {
+	executor, _ := setupTestExecutor(t)
+	command := `printf 'agent-shell-ok\n'`
+	if runtime.GOOS == "windows" {
+		command = `Write-Output 'agent-shell-ok'`
+	}
+	result, err := executor.executeSystemCommand(context.Background(), map[string]interface{}{"command": command})
+	if err != nil {
+		t.Fatalf("executeSystemCommand: %v", err)
+	}
+	if result == nil || result.IsError || !strings.Contains(result.Content[0].Text, "agent-shell-ok") {
+		t.Fatalf("default shell did not execute command: %+v", result)
+	}
+}
+
+func requirePosixExecutorShell(t *testing.T) {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		t.Skip("test command uses POSIX shell syntax")
 	}
 }
 

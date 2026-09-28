@@ -87,6 +87,9 @@ func New(cfg *config.Config, log *logger.Logger, configPath string) (*App, error
 
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.Default()
+	if err := configureTrustedProxies(router, cfg.Server.TrustedProxies); err != nil {
+		return nil, fmt.Errorf("配置 Gin 可信代理失败: %w", err)
+	}
 
 	// CORS中间件
 	router.Use(corsMiddleware(cfg.Server.CORSAllowedOrigins))
@@ -986,6 +989,8 @@ func setupRoutes(
 		protected.DELETE("/hitl/logs", agentHandler.DeleteHITLLogs)
 		protected.GET("/hitl/logs/:id", agentHandler.GetHITLLog)
 		protected.POST("/hitl/decision", agentHandler.DecideHITLInterrupt)
+		protected.GET("/chat/question", agentHandler.GetPendingUserQuestion)
+		protected.POST("/chat/question/answer", agentHandler.AnswerUserQuestion)
 		protected.POST("/hitl/dismiss", agentHandler.DismissHITLInterrupt)
 		protected.GET("/hitl/config/:conversationId", agentHandler.GetHITLConversationConfig)
 		protected.PUT("/hitl/config", agentHandler.UpsertHITLConversationConfig)
@@ -1000,6 +1005,7 @@ func setupRoutes(
 		protected.PUT("/hitl/audit-strategy", agentHandler.UpdateHITLAuditStrategy)
 		// Agent Loop 取消与任务列表
 		protected.POST("/agent-loop/cancel", agentHandler.CancelAgentLoop)
+		protected.POST("/agent-loop/guide", agentHandler.GuideAgentLoop)
 		protected.GET("/agent-loop/tasks", agentHandler.ListAgentTasks)
 		protected.GET("/agent-loop/task-events", agentHandler.SubscribeAgentTaskEvents)
 		protected.GET("/agent-loop/tasks/completed", agentHandler.ListCompletedTasks)
@@ -1449,8 +1455,14 @@ func setupRoutes(
 }
 
 func requestFromLoopback(c *gin.Context) bool {
-	ip := net.ParseIP(strings.TrimSpace(c.ClientIP()))
-	return ip != nil && ip.IsLoopback()
+	return security.IsLoopbackRemoteAddr(c.Request.RemoteAddr)
+}
+
+func configureTrustedProxies(router *gin.Engine, trustedProxies []string) error {
+	if len(trustedProxies) == 0 {
+		trustedProxies = nil
+	}
+	return router.SetTrustedProxies(trustedProxies)
 }
 
 // registerWebshellTools 注册 WebShell 相关 MCP 工具，供 AI 助手在指定连接上执行命令与文件操作

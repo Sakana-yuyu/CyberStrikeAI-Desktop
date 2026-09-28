@@ -116,6 +116,18 @@ func (r *EinoTurnLoopRuntime) PushInterruptContinue(note string) bool {
 	return ok
 }
 
+// PushGuidance 等当前轮次结束后再向 Agent 提供方向，不中断正在执行的工作。
+func (r *EinoTurnLoopRuntime) PushGuidance(note string) bool {
+	if r == nil || r.loop == nil || strings.TrimSpace(note) == "" {
+		return false
+	}
+	ok, _ := r.loop.Push(EinoTurnLoopItem{
+		Kind: "guidance", Note: strings.TrimSpace(note),
+		Messages: []*schema.Message{schema.UserMessage("用户在任务进行中补充方向：\n" + strings.TrimSpace(note))},
+	})
+	return ok
+}
+
 func (r *EinoTurnLoopRuntime) StopImmediate(cause string) {
 	if r == nil || r.loop == nil {
 		return

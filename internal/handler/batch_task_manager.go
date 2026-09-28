@@ -1332,10 +1332,9 @@ func (m *BatchTaskManager) MoveToNextTask(queueID string) {
 	}
 }
 
-// SetTaskCancel 设置子任务的取消函数
-func (m *BatchTaskManager) SetTaskCancel(queueID, taskID string, cancel context.CancelFunc) {
+// SetTaskCancel 设置子任务的取消函数；队列不再运行时立即取消并返回 false。
+func (m *BatchTaskManager) SetTaskCancel(queueID, taskID string, cancel context.CancelFunc) bool {
 	m.mu.Lock()
-	defer m.mu.Unlock()
 	if cancel == nil {
 		if taskMap, ok := m.taskCancels[queueID]; ok {
 			delete(taskMap, taskID)
@@ -1343,12 +1342,33 @@ func (m *BatchTaskManager) SetTaskCancel(queueID, taskID string, cancel context.
 				delete(m.taskCancels, queueID)
 			}
 		}
-		return
+		m.mu.Unlock()
+		return true
+	}
+	queue, exists := m.queues[queueID]
+	if !exists || queue == nil || queue.Status != BatchQueueStatusRunning {
+		m.mu.Unlock()
+		cancel()
+		return false
+	}
+	claimed := false
+	for _, task := range queue.Tasks {
+		if task != nil && task.ID == taskID && task.Status == BatchTaskStatusRunning {
+			claimed = true
+			break
+		}
+	}
+	if !claimed {
+		m.mu.Unlock()
+		cancel()
+		return false
 	}
 	if m.taskCancels[queueID] == nil {
 		m.taskCancels[queueID] = make(map[string]context.CancelFunc)
 	}
 	m.taskCancels[queueID][taskID] = cancel
+	m.mu.Unlock()
+	return true
 }
 
 // PauseQueue 暂停队列

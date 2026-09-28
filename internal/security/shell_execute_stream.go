@@ -65,7 +65,7 @@ func runShellInBackground(ctx context.Context, command string, w *schema.StreamW
 	if IsBackgroundShellCommand(command) {
 		command = strings.TrimSpace(strings.TrimSuffix(command, "&"))
 	}
-	session, err := StartManagedBackground(ctx, "/bin/sh", command, "")
+	session, err := StartManagedBackground(ctx, defaultAgentShell(), command, "")
 	if err != nil {
 		_ = w.Send(nil, err)
 		return
@@ -95,7 +95,8 @@ func streamShellForeground(ctx context.Context, command string, w *schema.Stream
 	defer w.Close()
 
 	command = PrepareShellCommandForExecute(command)
-	cmd := exec.CommandContext(ctx, "/bin/sh", "-c", command)
+	shell := defaultAgentShell()
+	cmd := exec.CommandContext(ctx, shell, agentShellArgs(shell, command)...)
 	applyDefaultTerminalEnv(cmd)
 	attachNonInteractiveStdin(cmd)
 

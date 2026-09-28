@@ -146,6 +146,69 @@ func TestImportProjectFolderOverwritesSameRelPath(t *testing.T) {
 	}
 }
 
+func TestSaveImportedFileDoesNotConsumeSiblingImportPath(t *testing.T) {
+	dstDir := t.TempDir()
+	protectedPath := filepath.Join(dstDir, "report.txt.importing")
+	targetPath := filepath.Join(dstDir, "report.txt")
+
+	if err := saveImportedFile(importFileHeader(t, "report.txt.importing", "keep this file"), protectedPath); err != nil {
+		t.Fatalf("save sibling path: %v", err)
+	}
+	if err := saveImportedFile(importFileHeader(t, "report.txt", "new target"), targetPath); err != nil {
+		t.Fatalf("save target path: %v", err)
+	}
+	if got, err := os.ReadFile(protectedPath); err != nil || string(got) != "keep this file" {
+		t.Fatalf("sibling import path was changed: content=%q err=%v", got, err)
+	}
+	if got, err := os.ReadFile(targetPath); err != nil || string(got) != "new target" {
+		t.Fatalf("target contents incorrect: content=%q err=%v", got, err)
+	}
+}
+
+func TestValidateImportFolderFileSizes(t *testing.T) {
+	tests := []struct {
+		name  string
+		files []*multipart.FileHeader
+		want  bool
+	}{
+		{name: "one file at limit", files: []*multipart.FileHeader{{Filename: "one", Size: importFolderMaxFileByte}}, want: false},
+		{name: "aggregate at limit", files: []*multipart.FileHeader{{Filename: "one", Size: importFolderMaxFileByte}, {Filename: "two", Size: importFolderMaxFileByte}}, want: false},
+		{name: "single file over limit", files: []*multipart.FileHeader{{Filename: "large", Size: importFolderMaxFileByte + 1}}, want: true},
+		{name: "aggregate over limit", files: []*multipart.FileHeader{{Filename: "one", Size: importFolderMaxFileByte}, {Filename: "two", Size: importFolderMaxFileByte}, {Filename: "three", Size: 1}}, want: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateImportFolderFileSizes(tt.files)
+			if (err != nil) != tt.want {
+				t.Fatalf("validateImportFolderFileSizes() error=%v, wantError=%v", err, tt.want)
+			}
+		})
+	}
+}
+
+func importFileHeader(t *testing.T, filename, content string) *multipart.FileHeader {
+	t.Helper()
+	var body bytes.Buffer
+	mw := multipart.NewWriter(&body)
+	part, err := mw.CreateFormFile("files", filename)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := part.Write([]byte(content)); err != nil {
+		t.Fatal(err)
+	}
+	if err := mw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodPost, "/", &body)
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+	if err := req.ParseMultipartForm(1 << 20); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = req.MultipartForm.RemoveAll() })
+	return req.MultipartForm.File["files"][0]
+}
+
 func TestImportProjectFolderRejectsTraversalAndMismatch(t *testing.T) {
 	_, router, _ := newProjectImportTestEnv(t)
 

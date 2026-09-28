@@ -66,6 +66,8 @@ type AgentTask struct {
 	// agentTurnLoopInterrupt 当前 Eino TurnLoop 用户补充 push hook；中断并继续时优先将补充作为新 turn item 入队。
 	agentTurnLoopInterrupt        func(string) bool
 	agentTurnLoopInterruptVersion uint64
+	agentTurnLoopGuide            func(string) bool
+	agentTurnLoopGuideVersion     uint64
 
 	cancel func(error)
 }
@@ -291,6 +293,42 @@ func (m *AgentTaskManager) BindAgentTurnLoopInterrupt(conversationID string, pus
 			cur.agentTurnLoopInterrupt = nil
 		}
 	}
+}
+
+// BindAgentTurnLoopGuide 登记不抢占当前轮次的引导入口。
+func (m *AgentTaskManager) BindAgentTurnLoopGuide(conversationID string, push func(string) bool) func() {
+	conversationID = strings.TrimSpace(conversationID)
+	if conversationID == "" || push == nil {
+		return func() {}
+	}
+	m.mu.Lock()
+	t := m.tasks[conversationID]
+	if t == nil {
+		m.mu.Unlock()
+		return func() {}
+	}
+	t.agentTurnLoopGuideVersion++
+	version := t.agentTurnLoopGuideVersion
+	t.agentTurnLoopGuide = push
+	m.mu.Unlock()
+	return func() {
+		m.mu.Lock()
+		defer m.mu.Unlock()
+		if current := m.tasks[conversationID]; current != nil && current.agentTurnLoopGuideVersion == version {
+			current.agentTurnLoopGuide = nil
+		}
+	}
+}
+
+func (m *AgentTaskManager) GuideTask(conversationID, note string) bool {
+	m.mu.RLock()
+	t := m.tasks[strings.TrimSpace(conversationID)]
+	var push func(string) bool
+	if t != nil && t.Status == "running" {
+		push = t.agentTurnLoopGuide
+	}
+	m.mu.RUnlock()
+	return push != nil && push(strings.TrimSpace(note))
 }
 
 // ActiveMCPExecutionID 返回当前会话进行中的工具 executionId，无则空串。

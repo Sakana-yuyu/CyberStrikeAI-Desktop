@@ -217,7 +217,16 @@ func (h *AgentHandler) executeOneBatchSubTask(queueID string, queue *BatchTaskQu
 	baseCtx = h.tasks.BindProcessScope(baseCtx, conversationID, taskRunID)
 	taskCtx = h.tasks.BindProcessScope(taskCtx, conversationID, taskRunID)
 	registered = true
-	h.batchTaskManager.SetTaskCancel(queueID, task.ID, timeoutCancel)
+	if !h.batchTaskManager.SetTaskCancel(queueID, task.ID, timeoutCancel) {
+		finishStatus = "cancelled"
+		h.batchTaskManager.UpdateTaskStatus(queueID, task.ID, BatchTaskStatusCancelled, "", "队列已停止，子任务未启动")
+		return
+	}
+	if err := taskCtx.Err(); err != nil {
+		finishStatus = "cancelled"
+		h.batchTaskManager.UpdateTaskStatus(queueID, task.ID, BatchTaskStatusCancelled, "", "子任务启动上下文已取消")
+		return
+	}
 
 	if err := validateBatchHITLPolicy(queue.HITLPolicy); err != nil {
 		finishStatus = "failed"

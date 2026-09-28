@@ -189,6 +189,7 @@ type AgentHandler struct {
 	taskEventBus     *TaskEventBus // 镜像 SSE 事件，供刷新后订阅同一运行中任务
 	batchTaskManager *BatchTaskManager
 	hitlManager      *HITLManager
+	userQuestions    *userQuestionManager
 	config           *config.Config // 配置引用，用于获取角色信息
 	knowledgeManager interface {    // 知识库管理器接口
 		LogRetrieval(conversationID, messageID, query, riskType string, retrievedItems []string) error
@@ -293,6 +294,7 @@ func NewAgentHandler(agent *agent.Agent, db *database.DB, cfg *config.Config, lo
 		batchTaskManager: batchTaskManager,
 		config:           cfg,
 		hitlManager:      NewHITLManager(db, logger),
+		userQuestions:    newUserQuestionManager(),
 		batchCronParser:  cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow | cron.Descriptor),
 		auditLLM:         openai.NewClient(llmCfg, llmHTTP, logger),
 	}

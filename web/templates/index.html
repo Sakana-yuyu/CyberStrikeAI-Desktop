@@ -51,7 +51,7 @@
         })();
     </script>
     <link rel="stylesheet" href="/static/css/style.css?v=20260923-stream-1">
-    <link rel="stylesheet" href="/static/css/agent-shell.css?v=20260923-nopage-1">
+    <link rel="stylesheet" href="/static/css/agent-shell.css?v=20260924-theme-1">
     <link rel="stylesheet" href="/static/css/tool-guard.css?v=20260907-7">
     <link rel="stylesheet" href="/static/css/chat-plan-progress.css?v=20260813-4">
     <link rel="stylesheet" href="/static/css/c2.css">
@@ -1392,6 +1392,13 @@
                                 </div>
                                 </div>
                                 <section id="chat-hitl-approval-dock" class="chat-hitl-approval-dock" aria-label="待审批操作" aria-live="polite" hidden></section>
+                                <section id="chat-queue-banner" class="chat-queue-banner" aria-live="polite" hidden>
+                                    <div class="chat-queue-banner-copy"><strong id="chat-queue-count">1 条消息排队中</strong><span id="chat-queue-preview"></span></div>
+                                    <div class="chat-queue-banner-actions">
+                                        <button type="button" id="chat-queue-guide" onclick="guideQueuedChatMessage()">引导 Agent</button>
+                                        <button type="button" id="chat-queue-remove" onclick="removeQueuedChatMessage()">移除</button>
+                                    </div>
+                                </section>
                                 <div class="chat-input-primary-row chat-composer-surface">
                                 <div class="chat-input-with-files">
                                     <div id="chat-file-list" class="chat-file-list" aria-label="已选文件列表"></div>
@@ -1502,6 +1509,7 @@
                                                 <path d="M12 19V5M6.5 10.5L12 5l5.5 5.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
                                             </svg>
                                         </button>
+                                        <button type="button" id="chat-stop-btn" class="chat-stop-btn" onclick="stopCurrentChatTask()" title="停止任务" aria-label="停止任务" hidden>■</button>
                                     </div>
                                 </div>
                                 </div>
@@ -5357,6 +5365,21 @@
     </div>
 
     <!-- 用户中断并说明（继续迭代） -->
+    <div id="chat-question-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="chat-question-title">
+        <div class="modal-content chat-question-content">
+            <div class="modal-header"><h2 id="chat-question-title">Agent 需要你的选择</h2></div>
+            <div class="modal-body">
+                <p id="chat-question-text" class="chat-question-text"></p>
+                <div id="chat-question-options" class="chat-question-options" role="group" aria-label="建议选项"></div>
+                <label for="chat-question-custom">或自行输入</label>
+                <textarea id="chat-question-custom" class="form-control" rows="3" maxlength="2000" placeholder="输入你的决定或补充条件"></textarea>
+                <p id="chat-question-error" class="chat-question-error" role="alert" hidden></p>
+                <div class="form-actions"><button type="button" id="chat-question-submit" class="btn-primary" onclick="submitChatQuestionAnswer()">提交并继续</button></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 用户中断并说明（继续迭代） -->
     <div id="user-interrupt-modal" class="modal">
         <div class="modal-content" style="max-width: 520px;">
             <div class="modal-header">
@@ -5638,7 +5661,7 @@
     <!-- Marked.js + DOMPurify + 其他前端依赖：本地 vendor，内网/离线部署不依赖 CDN -->
     <script src="/static/vendor/marked.min.js"></script>
     <script src="/static/vendor/purify.min.js"></script>
-    <script src="/static/js/sanitize-markdown.js?v=20260923-chatmd-1"></script>
+    <script src="/static/js/sanitize-markdown.js?v=20260923-chatread-1"></script>
     <!-- Cytoscape.js for attack chain visualization -->
     <script src="/static/vendor/cytoscape.min.js"></script>
     <!-- ELK.js for high-quality DAG layout (reduces edge crossings) -->
@@ -6754,8 +6777,8 @@
     <script src="/static/js/agents.js"></script>
     <script src="/static/js/dashboard.js?v=20260923-ui-1"></script>
     <script src="/static/js/chat-scroll.js?v=20260815-1"></script>
-    <script src="/static/js/monitor.js?v=20260923-stream-1"></script>
-    <script src="/static/js/chat.js?v=20260923-nopage-1"></script>
+    <script src="/static/js/monitor.js?v=20260923-qa-1"></script>
+    <script src="/static/js/chat.js?v=20260923-qa-1"></script>
     <script src="/static/js/chat-plan-progress.js?v=20260815-1"></script>
     <script src="/static/js/hitl.js?v=20260923-ui-1"></script>
     <script src="/static/js/tool-guard.js?v=20260907-7"></script>

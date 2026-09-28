@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -12,6 +13,7 @@ import (
 )
 
 func TestEinoStreamingShell_StreamsStderrBeforeStdoutEOF(t *testing.T) {
+	requirePosixShellSyntax(t)
 	shell := NewEinoStreamingShell()
 	cmd := PrepareNonInteractiveShellCommand("echo err-only >&2; exit 1")
 	sr, err := shell.ExecuteStreaming(context.Background(), &filesystem.ExecuteRequest{Command: cmd})
@@ -43,6 +45,7 @@ func TestEinoStreamingShell_StreamsStderrBeforeStdoutEOF(t *testing.T) {
 }
 
 func TestEinoStreamingShell_SudoFailsFast(t *testing.T) {
+	requirePosixShellSyntax(t)
 	shell := NewEinoStreamingShell()
 	// Exercise stderr delivery and failure propagation without relying on the
 	// host's sudo policy: CI runners may allow passwordless sudo, even as root.
@@ -100,6 +103,7 @@ sudo whoami && printf '%s\n' 'unexpected-command-success'
 }
 
 func TestEinoStreamingShell_StderrWhileStdoutBlocks(t *testing.T) {
+	requirePosixShellSyntax(t)
 	shell := NewEinoStreamingShell()
 	// 模拟 sudo：stderr 先有输出，stdout 侧进程仍挂起；旧 eino local 在首包 stderr 前不会向流写任何内容。
 	cmd := PrepareNonInteractiveShellCommand(`echo "password prompt" >&2; sleep 30`)
@@ -139,6 +143,7 @@ func TestEinoStreamingShell_StderrWhileStdoutBlocks(t *testing.T) {
 
 // TestEinoStreamingShell_BackgroundJobDoesNotHoldPipe 模拟 cmd & 后继续前台逻辑：重定向后应快速结束。
 func TestEinoStreamingShell_BackgroundJobDoesNotHoldPipe(t *testing.T) {
+	requirePosixShellSyntax(t)
 	if testing.Short() {
 		t.Skip("skipping shell integration in -short")
 	}
@@ -169,5 +174,79 @@ func TestEinoStreamingShell_BackgroundJobDoesNotHoldPipe(t *testing.T) {
 	}
 	if !strings.Contains(got.String(), "started") {
 		t.Fatalf("expected foreground echo, got: %q", got.String())
+	}
+}
+
+func TestEinoStreamingShell_DefaultShellRuns(t *testing.T) {
+	command := `printf 'agent-shell-ok\n'`
+	if runtime.GOOS == "windows" {
+		command = `Write-Output 'agent-shell-ok'`
+	}
+	sr, err := NewEinoStreamingShell().ExecuteStreaming(context.Background(), &filesystem.ExecuteRequest{Command: command})
+	if err != nil {
+		t.Fatalf("ExecuteStreaming: %v", err)
+	}
+	defer sr.Close()
+	var got strings.Builder
+	for {
+		resp, recvErr := sr.Recv()
+		if errors.Is(recvErr, io.EOF) {
+			break
+		}
+		if recvErr != nil {
+			t.Fatalf("recv: %v", recvErr)
+		}
+		if resp != nil {
+			got.WriteString(resp.Output)
+		}
+	}
+	if !strings.Contains(got.String(), "agent-shell-ok") {
+		t.Fatalf("expected command output, got %q", got.String())
+	}
+}
+
+func TestEinoStreamingShell_WindowsBackgroundStartsPromptly(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("Windows PowerShell integration")
+	}
+	scope := NewProcessScope()
+	t.Cleanup(func() { _ = scope.Close() })
+	ctx, cancel := context.WithTimeout(WithProcessScope(context.Background(), scope), 5*time.Second)
+	defer cancel()
+	sr, err := NewEinoStreamingShell().ExecuteStreaming(ctx, &filesystem.ExecuteRequest{
+		Command:            "Start-Sleep -Seconds 60",
+		RunInBackendGround: true,
+	})
+	if err != nil {
+		t.Fatalf("ExecuteStreaming: %v", err)
+	}
+	defer sr.Close()
+	done := make(chan error, 1)
+	go func() {
+		for {
+			_, recvErr := sr.Recv()
+			if recvErr != nil {
+				done <- recvErr
+				return
+			}
+		}
+	}()
+	select {
+	case err := <-done:
+		if !errors.Is(err, io.EOF) {
+			t.Fatalf("background launch returned error: %v", err)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("background PowerShell command waited for completion")
+	}
+	if err := scope.Close(); err != nil {
+		t.Fatalf("close process scope: %v", err)
+	}
+}
+
+func requirePosixShellSyntax(t *testing.T) {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		t.Skip("test command uses POSIX shell syntax")
 	}
 }

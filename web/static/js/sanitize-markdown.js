@@ -212,6 +212,37 @@
 
     let chatMarkdownActionsBound = false;
 
+    function setCodeWrapState(block, button, wrapped) {
+        block.setAttribute('data-wrap', wrapped ? 'true' : 'false');
+        button.setAttribute('aria-pressed', wrapped ? 'true' : 'false');
+        const label = wrapped
+            ? chatMarkdownLabel('chat.unwrapLines', '取消换行')
+            : chatMarkdownLabel('chat.wrapLines', '自动换行');
+        button.title = label;
+        button.setAttribute('aria-label', label);
+    }
+
+    function copyCodeWithLegacyApi(text) {
+        if (!global.document || typeof global.document.execCommand !== 'function') return false;
+        const active = global.document.activeElement;
+        const input = global.document.createElement('textarea');
+        input.value = text;
+        input.style.position = 'fixed';
+        input.style.left = '-999999px';
+        input.style.opacity = '0';
+        global.document.body.appendChild(input);
+        try {
+            input.focus();
+            input.select();
+            return global.document.execCommand('copy');
+        } catch (e) {
+            return false;
+        } finally {
+            input.remove();
+            if (active && typeof active.focus === 'function') active.focus();
+        }
+    }
+
     function bindChatMarkdownActions() {
         if (chatMarkdownActionsBound || !global.document || !global.document.addEventListener) return;
         chatMarkdownActionsBound = true;
@@ -227,26 +258,37 @@
             const action = button.getAttribute('data-chat-code-action');
             if (action === 'wrap') {
                 const wrapped = block.getAttribute('data-wrap') === 'true';
-                block.setAttribute('data-wrap', wrapped ? 'false' : 'true');
-                button.setAttribute('aria-pressed', wrapped ? 'false' : 'true');
-                button.title = wrapped
-                    ? chatMarkdownLabel('chat.wrapLines', '自动换行')
-                    : chatMarkdownLabel('chat.unwrapLines', '取消换行');
+                setCodeWrapState(block, button, !wrapped);
                 return;
             }
             if (action !== 'copy') return;
             const code = block.querySelector('pre');
             const text = code ? code.textContent : '';
-            const done = function () {
-                button.classList.add('is-copied');
-                button.title = chatMarkdownLabel('chat.copied', '已复制');
+            const showResult = function (copied) {
+                button.classList.toggle('is-copied', copied);
+                button.classList.toggle('is-copy-failed', !copied);
+                const label = copied
+                    ? chatMarkdownLabel('chat.copied', '已复制')
+                    : chatMarkdownLabel('chat.copyFailedManual', '复制失败，请手动选择代码');
+                button.title = label;
+                button.setAttribute('aria-label', label);
                 global.setTimeout(function () {
                     button.classList.remove('is-copied');
+                    button.classList.remove('is-copy-failed');
                     button.title = chatMarkdownLabel('chat.copyCode', '复制代码');
+                    button.setAttribute('aria-label', button.title);
                 }, 1200);
             };
             if (global.navigator && global.navigator.clipboard && global.navigator.clipboard.writeText) {
-                global.navigator.clipboard.writeText(text).then(done).catch(function () {});
+                try {
+                    Promise.resolve(global.navigator.clipboard.writeText(text))
+                        .then(function () { showResult(true); })
+                        .catch(function () { showResult(copyCodeWithLegacyApi(text)); });
+                } catch (e) {
+                    showResult(copyCodeWithLegacyApi(text));
+                }
+            } else {
+                showResult(copyCodeWithLegacyApi(text));
             }
         });
     }

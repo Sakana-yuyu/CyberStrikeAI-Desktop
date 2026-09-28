@@ -55,28 +55,31 @@ var (
 //	SetTitle=17、GetResult=20（注意 21 AddPlace/22 SetDefaultExtension 常被漏数）；
 //
 // IShellItem::GetDisplayName=5
-func comVtbl(obj uintptr, index int) uintptr {
-	vt := *(*uintptr)(unsafe.Pointer(obj))
-	return *(*uintptr)(unsafe.Pointer(vt + uintptr(index)*unsafe.Sizeof(uintptr(0))))
+func comVtbl(obj unsafe.Pointer, index int) uintptr {
+	if obj == nil {
+		return 0
+	}
+	vt := *(*unsafe.Pointer)(obj)
+	return *(*uintptr)(unsafe.Add(vt, uintptr(index)*unsafe.Sizeof(uintptr(0))))
 }
 
-func comCall(obj uintptr, index int, args ...uintptr) uintptr {
+func comCall(obj unsafe.Pointer, index int, args ...uintptr) uintptr {
 	fn := comVtbl(obj, index)
-	r1, _, _ := syscall.SyscallN(fn, append([]uintptr{obj}, args...)...)
+	r1, _, _ := syscall.SyscallN(fn, append([]uintptr{uintptr(obj)}, args...)...)
 	return r1
 }
 
-func comRelease(obj uintptr) {
+func comRelease(obj unsafe.Pointer) {
 	_ = comCall(obj, 2)
 }
 
 // shCreateItemFromParsingName 由绝对路径创建 IShellItem（SetFolder 用）
-func shCreateItemFromParsingName(path string) (uintptr, uint32) {
+func shCreateItemFromParsingName(path string) (unsafe.Pointer, uint32) {
 	ptr, err := windows.UTF16PtrFromString(path)
 	if err != nil {
-		return 0, 0xFFFFFFFF
+		return nil, 0xFFFFFFFF
 	}
-	var item uintptr
+	var item unsafe.Pointer
 	hr, _, _ := procShCreateItem.Call(
 		uintptr(unsafe.Pointer(ptr)),
 		0,
@@ -99,7 +102,7 @@ func pickNativeFolder(title, startDir string) (string, bool, error) {
 		}
 	}()
 
-	var dlg uintptr
+	var dlg unsafe.Pointer
 	hr, _, _ = procCoCreate.Call(
 		uintptr(unsafe.Pointer(&clsidFileOpenDialog)),
 		0,
@@ -107,7 +110,7 @@ func pickNativeFolder(title, startDir string) (string, bool, error) {
 		uintptr(unsafe.Pointer(&iidIFileOpenDialog)),
 		uintptr(unsafe.Pointer(&dlg)),
 	)
-	if hr != 0 || dlg == 0 {
+	if hr != 0 || dlg == nil {
 		return "", false, fmt.Errorf("创建对话框失败: 0x%x", hr)
 	}
 	defer comRelease(dlg)
@@ -125,8 +128,8 @@ func pickNativeFolder(title, startDir string) (string, bool, error) {
 
 	// SetFolder：指定初始目录（空则由系统记住上次位置）
 	if d := strings.TrimSpace(startDir); d != "" {
-		if item, hr := shCreateItemFromParsingName(d); hr == 0 && item != 0 {
-			comCall(dlg, 12, item)
+		if item, hr := shCreateItemFromParsingName(d); hr == 0 && item != nil {
+			comCall(dlg, 12, uintptr(item))
 			comRelease(item)
 		}
 	}
@@ -147,24 +150,24 @@ func pickNativeFolder(title, startDir string) (string, bool, error) {
 	//   27/28 才是 GetResults/GetSelectedItems。
 	// 浏览进目录但未显式选中时（如程序化确认）GetResult 可能为空，
 	// 回退 GetFolder(13) 取当前浏览目录——对文件夹选择语义一致。
-	var item uintptr
+	var item unsafe.Pointer
 	hr = comCall(dlg, 20, uintptr(unsafe.Pointer(&item)))
-	if hr != 0 || item == 0 {
-		item = 0
+	if hr != 0 || item == nil {
+		item = nil
 		folderHR := comCall(dlg, 13, uintptr(unsafe.Pointer(&item)))
-		if folderHR != 0 || item == 0 {
+		if folderHR != 0 || item == nil {
 			return "", false, fmt.Errorf("未选择文件夹: 0x%x", uint32(folderHR))
 		}
 	}
 	defer comRelease(item)
 
-	var pathPtr uintptr
-	if hr := comCall(item, 5, uintptr(sigdnFileSysPath), uintptr(unsafe.Pointer(&pathPtr))); hr != 0 || pathPtr == 0 {
+	var pathPtr *uint16
+	if hr := comCall(item, 5, uintptr(sigdnFileSysPath), uintptr(unsafe.Pointer(&pathPtr))); hr != 0 || pathPtr == nil {
 		return "", false, fmt.Errorf("获取路径失败: 0x%x", uint32(hr))
 	}
-	defer procCoTaskFree.Call(pathPtr)
+	defer procCoTaskFree.Call(uintptr(unsafe.Pointer(pathPtr)))
 
-	path := windows.UTF16PtrToString((*uint16)(unsafe.Pointer(pathPtr)))
+	path := windows.UTF16PtrToString(pathPtr)
 	if strings.TrimSpace(path) == "" {
 		return "", false, errors.New("选择的路径为空")
 	}

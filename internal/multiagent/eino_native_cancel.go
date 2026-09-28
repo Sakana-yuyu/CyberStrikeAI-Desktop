@@ -16,6 +16,7 @@ const (
 
 type agentRuntimeCancelRegistrarKey struct{}
 type agentTurnLoopInterruptRegistrarKey struct{}
+type agentTurnLoopGuideRegistrarKey struct{}
 
 // AgentRuntimeCancelRegistrar binds the currently active Eino ADK cancel hook
 // into the host task manager. The hook returns true when Eino accepted and
@@ -63,6 +64,24 @@ func agentTurnLoopInterruptRegistrarFromContext(ctx context.Context) AgentTurnLo
 		return v
 	}
 	return nil
+}
+
+// AgentTurnLoopGuideRegistrar 把用户引导排入下一轮，不抢占当前工具或推理。
+type AgentTurnLoopGuideRegistrar func(push func(note string) bool) (unregister func())
+
+func WithAgentTurnLoopGuideRegistrar(ctx context.Context, registrar AgentTurnLoopGuideRegistrar) context.Context {
+	if ctx == nil || registrar == nil {
+		return ctx
+	}
+	return context.WithValue(ctx, agentTurnLoopGuideRegistrarKey{}, registrar)
+}
+
+func agentTurnLoopGuideRegistrarFromContext(ctx context.Context) AgentTurnLoopGuideRegistrar {
+	if ctx == nil {
+		return nil
+	}
+	registrar, _ := ctx.Value(agentTurnLoopGuideRegistrarKey{}).(AgentTurnLoopGuideRegistrar)
+	return registrar
 }
 
 func requestEinoNativeAgentCancel(cancelFn adk.AgentCancelFunc, cause error) (waitErr error, submitted bool, handled bool) {

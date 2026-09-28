@@ -17,6 +17,8 @@ This checklist covers pre-production and continuous hardening for CyberStrikeAI.
 
 ## Reverse Proxy Baseline
 
+Gin does not trust forwarded client-IP headers by default. When running behind a trusted reverse proxy, configure only its source IP or the narrowest practical CIDR in `server.trusted_proxies`; do not trust all addresses. Desktop bootstrap and native folder-picker checks use the TCP peer address directly.
+
 ```nginx
 client_max_body_size 200m;
 proxy_buffering off;

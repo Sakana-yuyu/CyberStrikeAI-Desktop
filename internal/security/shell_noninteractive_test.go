@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"os/exec"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -74,6 +75,9 @@ func TestResolveShellNoOutputTimeoutSeconds(t *testing.T) {
 
 // TestNonInteractiveStdinReadExitsQuickly 验证 exec </dev/null + attachNonInteractiveStdin 时 read 立即 EOF，不挂起。
 func TestNonInteractiveStdinReadExitsQuickly(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("test command uses POSIX shell syntax")
+	}
 	if testing.Short() {
 		t.Skip("skipping shell integration in -short")
 	}
@@ -99,6 +103,9 @@ func TestNonInteractiveStdinReadExitsQuickly(t *testing.T) {
 
 // TestNonInteractiveStdinReadBlocksWithoutRedirect 对照：stdin 为永不写入的管道时 read 会挂起。
 func TestNonInteractiveStdinReadBlocksWithoutRedirect(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("test command uses POSIX shell syntax")
+	}
 	if testing.Short() {
 		t.Skip("skipping shell integration in -short")
 	}

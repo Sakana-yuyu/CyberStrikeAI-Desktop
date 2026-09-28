@@ -13,7 +13,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 OUT="${OUT:-}"
-LDFLAGS="-s -w"
+LDFLAGS="-s -w -extldflags=-specs=cmd/desktop/no-default-manifest.specs"
 if [ "${1:-}" = "--console" ]; then
   OUT="${OUT:-CyberStrikeAI-Desktop-console.exe}"
 else

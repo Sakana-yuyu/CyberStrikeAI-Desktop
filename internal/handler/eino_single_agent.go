@@ -191,6 +191,7 @@ func (h *AgentHandler) EinoSingleAgentLoopStream(c *gin.Context) {
 	taskCtx = h.tasks.BindProcessScope(taskCtx, conversationID, taskRunID)
 	taskOwned = true
 	sendEvent = h.taskFinishingEventSender(sendEvent, conversationID, taskRunID, func() string { return taskStatus })
+	sendEvent("task_started", "任务已启动", map[string]interface{}{"conversationId": conversationID, "runId": taskRunID})
 
 	var cumulativeMCPExecutionIDs []string
 	// 同一请求内分段续跑时，主代理 iteration 事件按偏移累计，避免 UI 出现「第3轮 → 第1轮」回跳。
@@ -240,9 +241,13 @@ func (h *AgentHandler) EinoSingleAgentLoopStream(c *gin.Context) {
 		taskCtxLoop = multiagent.WithAgentTurnLoopInterruptRegistrar(taskCtxLoop, func(push func(string) bool) func() {
 			return h.tasks.BindAgentTurnLoopInterrupt(conversationID, push)
 		})
+		taskCtxLoop = multiagent.WithAgentTurnLoopGuideRegistrar(taskCtxLoop, func(push func(string) bool) func() {
+			return h.tasks.BindAgentTurnLoopGuide(conversationID, push)
+		})
 		taskCtxLoop = multiagent.WithHITLToolInterceptor(taskCtxLoop, func(ctx context.Context, toolName, arguments string) (string, error) {
 			return h.interceptHITLForEinoTool(ctx, cancelWithCause, conversationID, assistantMessageID, sendEvent, toolName, arguments)
 		})
+		taskCtxLoop = multiagent.WithUserQuestionAsk(taskCtxLoop, h.userQuestionAsker(conversationID, sendEvent))
 
 		result, runErr = multiagent.RunEinoSingleChatModelAgent(
 			taskCtxLoop,

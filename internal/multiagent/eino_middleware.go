@@ -101,6 +101,7 @@ func mergeAlwaysVisibleToolNames(configured []string) []string {
 	for _, n := range builtin.GetAllBuiltinTools() {
 		add(n)
 	}
+	add("ask_user")
 	return merged
 }
 

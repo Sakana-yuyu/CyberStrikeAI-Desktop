@@ -15,6 +15,7 @@ import (
 type einoTurnLoopRuntimeControl interface {
 	Run(context.Context)
 	PushInterruptContinue(string) bool
+	PushGuidance(string) bool
 	StopImmediate(string)
 	StopWhenIdle()
 	Wait() *adk.TurnLoopExitState[EinoTurnLoopItem, *schema.Message]
@@ -35,8 +36,10 @@ type einoTurnLoopIteratorStarterConfig struct {
 	NativeCancelCause           *atomic.Value
 	UnregisterAgentCancel       *func()
 	UnregisterTurnLoopInterrupt *func()
+	UnregisterTurnLoopGuide     *func()
 	RuntimeCancelRegistrar      AgentRuntimeCancelRegistrar
 	TurnLoopInterruptRegistrar  AgentTurnLoopInterruptRegistrar
+	TurnLoopGuideRegistrar      AgentTurnLoopGuideRegistrar
 	RuntimeFactory              einoTurnLoopRuntimeFactory
 }
 
@@ -58,6 +61,7 @@ func (s *einoTurnLoopIteratorStarter) Start(runMsgs []adk.Message) *adk.AsyncIte
 		return nil
 	}
 	callAndClearUnregister(s.cfg.UnregisterTurnLoopInterrupt)
+	callAndClearUnregister(s.cfg.UnregisterTurnLoopGuide)
 	callAndClearUnregister(s.cfg.UnregisterAgentCancel)
 
 	iter, gen := adk.NewAsyncIteratorPair[*adk.AgentEvent]()
@@ -72,6 +76,7 @@ func (s *einoTurnLoopIteratorStarter) Start(runMsgs []adk.Message) *adk.AsyncIte
 		OnAgentEvents:    eventsBridge.OnAgentEvents,
 	})
 	s.bindTurnLoopInterrupt(runtime)
+	s.bindTurnLoopGuide(runtime)
 	s.bindRuntimeCancel(runtime)
 	runtime.Run(s.cfg.Context)
 	runtime.StopWhenIdle()
@@ -84,6 +89,21 @@ func (s *einoTurnLoopIteratorStarter) Start(runMsgs []adk.Message) *adk.AsyncIte
 		gen.Send(&adk.AgentEvent{Err: state.ExitReason})
 	}()
 	return iter
+}
+
+func (s *einoTurnLoopIteratorStarter) bindTurnLoopGuide(runtime einoTurnLoopRuntimeControl) {
+	if s == nil || runtime == nil || s.cfg.TurnLoopGuideRegistrar == nil || s.cfg.UnregisterTurnLoopGuide == nil {
+		return
+	}
+	*s.cfg.UnregisterTurnLoopGuide = s.cfg.TurnLoopGuideRegistrar(func(note string) bool {
+		ok := runtime.PushGuidance(note)
+		if ok && s.cfg.Progress != nil {
+			s.cfg.Progress("progress", "已接收用户引导，将在当前步骤完成后调整方向", map[string]interface{}{
+				"conversationId": s.cfg.ConversationID, "kind": "guidance",
+			})
+		}
+		return ok
+	})
 }
 
 func (s *einoTurnLoopIteratorStarter) turnLoopCheckpointID() string {

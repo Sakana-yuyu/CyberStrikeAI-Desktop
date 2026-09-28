@@ -801,8 +801,8 @@ func (e *Executor) executeSystemCommand(ctx context.Context, args map[string]int
 
 	command = PrepareShellCommandForExecute(command)
 
-	// 获取shell类型（可选，默认为sh）
-	shell := "sh"
+	// 获取 shell 类型（可选，默认使用当前平台的 Agent shell）。
+	shell := defaultAgentShell()
 	if s, ok := args["shell"].(string); ok && s != "" {
 		shell = s
 	}
@@ -818,11 +818,9 @@ func (e *Executor) executeSystemCommand(ctx context.Context, args map[string]int
 
 	// 构建命令
 	var cmd *exec.Cmd
+	cmd = exec.CommandContext(ctx, shell, agentShellArgs(shell, command)...)
 	if workDir != "" {
-		cmd = exec.CommandContext(ctx, shell, "-c", command)
 		cmd.Dir = workDir
-	} else {
-		cmd = exec.CommandContext(ctx, shell, "-c", command)
 	}
 	ConfigureShellCmdForAgentExecute(cmd)
 
@@ -853,7 +851,7 @@ func (e *Executor) executeSystemCommand(ctx context.Context, args map[string]int
 		output, err = streamCommandOutput(ctx, cmd, cb, ResolveShellNoOutputTimeoutSeconds(e.shellNoOutputTimeoutSec), e.toolOutputMaxBytes, spill)
 		if err != nil && shouldRetryWithPTY(output) {
 			e.logger.Info("检测到系统命令需要 TTY，使用 PTY 重试")
-			cmd2 := exec.CommandContext(ctx, shell, "-c", command)
+			cmd2 := exec.CommandContext(ctx, shell, agentShellArgs(shell, command)...)
 			if workDir != "" {
 				cmd2.Dir = workDir
 			}
@@ -864,7 +862,7 @@ func (e *Executor) executeSystemCommand(ctx context.Context, args map[string]int
 		output, err = combinedOutputCancellableWithLimit(ctx, cmd, e.toolOutputMaxBytes, spill)
 		if err != nil && shouldRetryWithPTY(output) {
 			e.logger.Info("检测到系统命令需要 TTY，使用 PTY 重试")
-			cmd2 := exec.CommandContext(ctx, shell, "-c", command)
+			cmd2 := exec.CommandContext(ctx, shell, agentShellArgs(shell, command)...)
 			if workDir != "" {
 				cmd2.Dir = workDir
 			}
